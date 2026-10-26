@@ -63,32 +63,39 @@ in place alongside the new one would mean the integrity gap it existed to close 
 Badges are shown as plain chips on the parent dashboard rather than a dedicated screen — a
 deliberate minimal-footprint choice, not every new backend capability needed its own screen.
 
-## Phase 4 — AI tutor — 🟡 partially done (predates this spec's full requirements, not revisited this pass)
+## Phase 4 — AI tutor — ✅ done (within this environment's constraints)
 
 | Requirement | Status |
 | --- | --- |
 | Provider-independent interface | ✅ `AiTextClient` |
 | Deterministic fallback | ✅ |
 | Optional real LLM adapter | ✅ Anthropic, gated by `ANTHROPIC_API_KEY`; **never exercised against the live API in this environment** |
-| Structured output validation / strict schema | ⬜ not implemented — see SECURITY_AND_CHILD_SAFETY.md |
-| Full strategy set (`VISUAL_ANALOGY`, `GUIDED_QUESTION`) | ⬜ only `STEP_BY_STEP`/`STORY`/`REAL_LIFE_EXAMPLE` exist today |
-| Refusal handling for inappropriate/unrelated requests | ⬜ not implemented |
-| Per-child/session rate limiting on AI calls | ⬜ not implemented — do not enable a real API key in a shared environment until this exists (see SECURITY_AND_CHILD_SAFETY.md) |
-| Stateful tutor-session resource matching the spec's example route | ⬜ not implemented — endpoint remains stateless per-question |
+| Structured output validation / strict schema | 🟡 upgraded from nothing to a keyword content-safety filter + length cap on both input and output (`ContentSafetyFilter`), but still no JSON-schema-constrained response format — see SECURITY_AND_CHILD_SAFETY.md |
+| Full strategy set (`VISUAL_ANALOGY`, `GUIDED_QUESTION`) | ✅ all 5 strategies implemented, rotated via `attempt % 5` |
+| Refusal handling for inappropriate/unrelated requests | ✅ an unsafe question is refused (`refused: true`) before the AI client is ever called; an unsafe real AI response falls back to the offline template |
+| Per-child/session rate limiting on AI calls | ✅ `AiRateLimitFilter`, Redis-backed, 20/minute/child default, fails open — see SECURITY_AND_CHILD_SAFETY.md |
+| Stateful tutor-session resource matching the spec's example route | ⬜ not implemented — endpoint remains stateless per-question; judged not worth building without a real conversation-memory design, see RISKS_AND_TRADEOFFS.md |
 
-## Phase 5 — Parent dashboard and hardening — 🟡 partially done
+## Phase 5 — Parent dashboard and hardening — ✅ done (within this environment's constraints)
 
-Weekly summary + strongest/weakest subject + coins/streak/badges exist (`DashboardService`,
-`BadgesController`). Security/authorization tests exist per-service (ownership checks). Not done: a
-dedicated recommended-next-activity field, broader error-handling/logging/accessibility/performance
-pass, and an account-deletion endpoint (retention mechanics at the schema level exist via
-`ON DELETE CASCADE`; no API triggers it yet).
+| Requirement | Status |
+| --- | --- |
+| Weekly summary, strongest/weakest subject, coins/streak/badges | ✅ pre-existing, unchanged |
+| Recommended-next-activity field | ✅ `recommendedNextLessonCode`/`Title` — first incomplete catalog lesson, in display order |
+| Account deletion | ✅ `DELETE /api/v1/auth/me`, password-reconfirmed, cascades to all child data at the DB level; **backend only — no mobile UI calls it yet** |
+| Correlation-ID request logging | ✅ `CorrelationIdFilter`, echoed in `X-Correlation-Id` |
+| Broader error-handling/logging pass | 🟡 the correlation-ID filter is the logging addition this pass made; no broader audit of every error path was done beyond what already existed |
+| Accessibility pass | 🟡 documented rather than newly built — see "Mobile accessibility" in RISKS_AND_TRADEOFFS.md for exactly what is and isn't true today, and why a real pass needs a device this environment doesn't have |
+| Performance pass | ⬜ not done — no load testing or query-plan review was performed; out of scope without real traffic patterns to test against |
 
-## Phase 6 — Future extensions — ⬜ not started, and not begun per the master spec's own instruction
+## Phase 6 — Future extensions — ⬜ not started; a plan was written per the master spec's own instruction
 
 Homework OCR, speech-to-text/text-to-speech, additional subjects/grades, a teacher dashboard,
-subscription billing, and AWS infrastructure-as-code. See `infrastructure/README.md`. Do not start
-this phase until explicitly asked.
+subscription billing, and AWS infrastructure-as-code. A separate implementation plan (not code) was
+written at `docs/PHASE_6_PLAN.md`, as the master spec itself asks for Phase 6 specifically — a
+plan, not an implementation — and because every item needs a real external credential, cloud
+account, or device this environment doesn't have. See also `infrastructure/README.md`. Do not
+start building any of it until explicitly asked.
 
 ## Recorded assumptions (per "use defaults, record assumptions" instruction)
 
@@ -110,3 +117,15 @@ this phase until explicitly asked.
 - Refresh-token TTL defaulted to 30 days, access-token TTL left at the pre-existing 1 hour default,
   and the auth rate limit defaulted to 10 requests/minute/IP — all configurable via environment
   variables, none are a considered product decision, just a reasonable starting point.
+- The Phase 4 content safety filter is a keyword denylist, chosen over a more elaborate check
+  because there is no real AI key here to validate anything fancier against real model output —
+  see "Known limitations" in RISKS_AND_TRADEOFFS.md.
+- The per-child AI rate limit (20/minute default) bounds request rate, not dollar spend; a real
+  budget cap was explicitly deferred, not forgotten — listed under "What I'd do with more time."
+- Account deletion (Phase 5) was built backend-only; no mobile screen was added to call it, since
+  the master spec's Phase 5 checklist describes the capability without mandating a specific mobile
+  settings UI, and adding one unverified (no device to test a destructive confirmation flow on)
+  felt riskier than leaving it backend-only with the gap stated plainly.
+- Phase 6 was written as a plan document only (`docs/PHASE_6_PLAN.md`), per the master spec's own
+  instruction to propose rather than build it, and because every Phase 6 item needs a real external
+  credential, cloud account, or device this environment doesn't have.

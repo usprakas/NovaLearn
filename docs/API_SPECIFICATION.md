@@ -21,10 +21,13 @@ Errors use a consistent shape (see `interfaces/rest/common/ApiExceptionHandler`)
 | POST | `/auth/login` | No | `{email, password}` | 200, same shape as register |
 | POST | `/auth/refresh` | No | `{refreshToken}` | 200, same shape — the presented refresh token is revoked and a new pair is issued |
 | POST | `/auth/logout` | No | `{refreshToken}` | 204 — revokes the token; a no-op (still 204) if it's already unknown/revoked |
+| DELETE | `/auth/me` | Yes | `{password}` | 204 — permanently deletes the authenticated parent's account; 401 if `password` doesn't match. Every child profile, their progress, rewards, and refresh tokens cascade-delete at the database level |
 
 Password: 12–72 characters, required at registration. Login failure wording is identical whether
 the email is unknown or the password is wrong. Auth endpoints are rate-limited (default 10
-requests/minute/IP via Redis; fails open if Redis is unreachable).
+requests/minute/IP via Redis; fails open if Redis is unreachable). Note: `/auth/me` requires
+`Authorization: Bearer <accessToken>` like any other authenticated route — only
+`register`/`login`/`refresh`/`logout` are exempt.
 
 ## Children
 
@@ -94,34 +97,44 @@ separate "check for new badges" call.
 
 | Method | Path | Response |
 | --- | --- | --- |
-| GET | `/children/{childId}/dashboard` | 200, `{lessonsCompletedThisWeek, totalLessonsAttempted, averageScore, strongestSubject, weakestSubject, coins, currentStreak, longestStreak}` |
+| GET | `/children/{childId}/dashboard` | 200, `{lessonsCompletedThisWeek, totalLessonsAttempted, averageScore, strongestSubject, weakestSubject, coins, currentStreak, longestStreak, recommendedNextLessonCode, recommendedNextLessonTitle}` |
 
 `strongestSubject`/`weakestSubject` are derived from average score per subject across whatever
 lessons the child has attempted; both are `null` if the child has no progress yet. This is
 **measured activity**, not a validated mastery model — see "Mastery algorithm" in
-`docs/DATABASE_DESIGN.md`.
+`docs/DATABASE_DESIGN.md`. `recommendedNextLessonCode`/`Title` are the first catalog lesson, in
+display order, the child hasn't completed yet (both `null` if every lesson is complete) — a plain
+"next up" pointer, not a personalized or adaptive recommendation.
 
 ## AI tutor
 
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
-| POST | `/children/{childId}/tutor/questions` | `{question, subject?, attempt (int, >= 0)}` | 201, `{strategy, explanation}` |
+| POST | `/children/{childId}/tutor/questions` | `{question (<= 500 chars), subject?, attempt (int, >= 0)}` | 201, `{strategy, explanation, suggestedNextActivity, refused}` |
 
-`strategy` ∈ `{STEP_BY_STEP, STORY, REAL_LIFE_EXAMPLE}`, selected by `attempt % 3` — the mobile
-client increments `attempt` each time the child taps "try another way." Falls back to a
-deterministic offline template if no `ANTHROPIC_API_KEY` is configured, or if the real call fails.
+`strategy` ∈ `{STEP_BY_STEP, STORY, REAL_LIFE_EXAMPLE, VISUAL_ANALOGY, GUIDED_QUESTION}`, selected
+by `attempt % 5` — the mobile client increments `attempt` each time the child taps "try another
+way." Falls back to a deterministic offline template if no `ANTHROPIC_API_KEY` is configured, or
+if the real call fails. `refused` is `true` (with `strategy` meaningless/absent from the UI) when
+the question fails the content safety check — in that case the AI client is never called at all.
+`suggestedNextActivity` is a human-readable pointer at a lesson in the question's subject (or the
+catalog's first lesson if no subject was given), `null` if the catalog has nothing to suggest.
 Note: the master spec's example route shape (`/tutor/sessions/{sessionId}/messages`, implying a
-stateful conversation) is not what's implemented — this remains a stateless per-question endpoint,
-unchanged from the pre-master-spec session. See DEVELOPMENT_PLAN.md Phase 4.
+stateful conversation) is not what's implemented — this remains a stateless per-question endpoint.
+See DEVELOPMENT_PLAN.md Phase 4. Rate-limited per child (default 20 requests/minute via Redis;
+fails open if Redis is unreachable) — see SECURITY_AND_CHILD_SAFETY.md.
 
 ## Homework helper
 
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
-| POST | `/children/{childId}/homework/questions` | `{questionText}` | 201, `{steps: [string], finalHint}` |
+| POST | `/children/{childId}/homework/questions` | `{questionText (<= 500 chars)}` | 201, `{steps: [string], finalHint}` |
 
-Text-in only — **there is no OCR or image upload**. Same offline/real-AI-with-fallback behavior as
-the tutor.
+Text-in only — **there is no OCR or image upload** (see `docs/PHASE_6_PLAN.md`). Same
+offline/real-AI-with-fallback behavior and content-safety check as the tutor: an unsafe question
+never reaches the AI client, and an unsafe or oversized real AI response falls back to the offline
+template. Rate-limited per child, shared with the tutor endpoint's limiter and budget
+(`/api/v1/children/{childId}/(tutor|homework)/`).
 
 ## Operational
 
@@ -130,8 +143,13 @@ the tutor.
 | GET | `/actuator/health` | Liveness/readiness; no auth |
 | GET | `/v3/api-docs`, `/swagger-ui.html` | OpenAPI document and UI; no auth |
 
-## Not yet implemented (see docs/DEVELOPMENT_PLAN.md for phasing)
+A request that exceeds its rate limit (auth endpoints, or the AI tutor/homework endpoints above)
+receives `429 Too Many Requests`, not the standard error shape above — Spring's default error
+body for `response.sendError`.
+
+## Not yet implemented (see docs/DEVELOPMENT_PLAN.md and docs/PHASE_6_PLAN.md for phasing)
 
 - Any teacher-facing endpoint — out of MVP scope by design.
-- OCR-based homework image upload (`POST .../homework/uploads` + S3) — Phase 6.
-- A stateful tutor conversation resource matching the master spec's example route shape — Phase 4.
+- OCR-based homework image upload (`POST .../homework/uploads` + S3) — see `docs/PHASE_6_PLAN.md`.
+- A stateful tutor conversation resource matching the master spec's example route shape.
+- Mobile UI for account deletion — the backend endpoint above exists; no screen calls it yet.

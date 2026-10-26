@@ -22,8 +22,13 @@ the default and a real Anthropic Messages API client as the opt-in path.
 | **Server-side exercise grading** | Real: the answer index is never serialized to the client; `ExerciseEvaluationService` is the only code path that ever reads it |
 | Gamification: coins (ledger), streaks, badges | Real, persisted, tested, including day-boundary streak logic and idempotent award-on-retry |
 | Parent dashboard aggregation | Real, computed from live progress + rewards data |
-| AI tutor | Real offline templates by default; real Anthropic API call if `ANTHROPIC_API_KEY` is set (untested against the live API here — no key provisioned) |
-| Homework helper | Same pattern as the tutor. **Not OCR** — the input is typed text, never a photo |
+| AI tutor | Real offline templates by default; real Anthropic API call if `ANTHROPIC_API_KEY` is set (untested against the live API here — no key provisioned); now 5 strategies, refuses unsafe questions without ever calling the AI, and treats a real AI response as untrusted input subject to the same safety filter |
+| Homework helper | Same pattern as the tutor, including the unsafe-input/unsafe-output handling above. **Not OCR** — the input is typed text, never a photo (see `docs/PHASE_6_PLAN.md`) |
+| Content safety filter (`ContentSafetyFilter`) | Real, tested: a keyword denylist checked on both the child's question and (for a real AI call) the model's response, plus a response-length cap. A real, narrow implementation — not a claim of comprehensive moderation; see "Known limitations" below |
+| Per-child AI rate limiting (`AiRateLimitFilter`) | Real, Redis-backed, fails open; default 20 requests/minute/child, separate from the IP-based auth limiter |
+| Parent dashboard recommended-next-lesson | Real: first catalog lesson, in display order, the child hasn't completed — a plain "next up," not a personalized/adaptive recommendation |
+| Account deletion | Real: `DELETE /api/v1/auth/me` re-confirms the password, then deletes the parent row; every child profile, their progress, rewards, and refresh tokens cascade-delete at the database level (`ON DELETE CASCADE`) |
+| Correlation-ID request logging | Real: `CorrelationIdFilter` attaches an ID (reused from the client's `X-Correlation-Id` header if sent, generated otherwise) to every request's logs via MDC and echoes it back in the response header |
 | Riverpod state management on mobile | Real, but scoped to the app-wiring layer (session/auth) — see ADR 0003. Leaf-screen widgets still receive dependencies via constructor by deliberate choice |
 | Voice input/output | Not built. Flutter's on-device `speech_to_text`/`flutter_tts` don't need a cloud key, but there is no emulator/device here to verify them on, so nothing was added rather than add unverified code |
 | Teacher dashboard | Not built — the PRD itself marks this "(Future)", not MVP scope |
@@ -50,10 +55,13 @@ the default and a real Anthropic Messages API client as the opt-in path.
   output from the model. If a real Anthropic response doesn't format as expected, the parsing
   falls back to treating the whole response as one step plus a generic hint rather than failing —
   reasonable, but worth knowing it is heuristic, not a contract with the model.
-- **No per-child or per-session rate limiting or budget cap on tutor/homework calls specifically**
-  — only the IP-based limit on the auth endpoints exists. A child could spam questions; nothing
-  throttles that today. Do not enable a real `ANTHROPIC_API_KEY` in a shared environment until
-  this is addressed (unbounded calls cost real money) — see SECURITY_AND_CHILD_SAFETY.md.
+- **The content safety filter is a keyword denylist, not comprehensive moderation.** It catches
+  the specific unsafe topics the master spec calls out (self-harm, violence, drugs, sexual
+  content, and various forms of PII) by substring match on both the child's question and a real
+  AI response, but a keyword list is inherently incomplete — it will miss unsafe content phrased
+  without a listed keyword, and can false-positive on an innocent question that happens to contain
+  one. A real deployment should treat this as a baseline, not a substitute for provider-side
+  moderation (e.g. Anthropic's own safety behavior) once a real API key is in use.
 - **No scheduled cleanup of expired/revoked refresh tokens** — the table grows unboundedly in a
   long-running deployment.
 - **No automatic silent token refresh.** The mobile client stores the refresh token and the backend
@@ -69,6 +77,22 @@ the default and a real Anthropic Messages API client as the opt-in path.
   This caught real syntax issues during authoring (see TESTING.md) but is not equivalent to the
   Testcontainers-based `PostgresIntegrationTest` CI runs with real Postgres.
 
+## Mobile accessibility — what exists today, honestly assessed
+
+No dedicated accessibility pass (screen-reader audit, contrast check, dynamic-text-size testing on
+a real device) was done, because there is no device/emulator in this environment to verify one on
+— adding `Semantics` widgets or contrast tweaks with no way to confirm they help would be guessing,
+not an accessibility pass. What is true today without any new code: every icon-bearing control in
+the mobile app already carries a text label a screen reader can announce — the bottom
+`NavigationDestination`s (`Learn`/`Tutor`/`Homework`/`Progress`) each have a `label` alongside
+their icon, and the one icon-only button in the app (sign-out, in `home_screen.dart`) has a
+`tooltip`, which Flutter's Material `IconButton` surfaces as its accessibility label automatically.
+There is no icon-only, unlabeled control anywhere in the app today. This is reported as "an
+existing pattern that happens to be reasonably accessible," not as evidence of a completed
+accessibility review — a real pass (VoiceOver/TalkBack walkthrough, color-contrast check against
+WCAG AA, text scaling up to at least 200%) still needs a real device and is listed under "What I'd
+do with more time" below.
+
 ## Failure scenarios and how the system responds
 
 | Scenario | Response |
@@ -82,6 +106,10 @@ the default and a real Anthropic Messages API client as the opt-in path.
 | Postgres is unreachable | Spring Boot's datasource health check surfaces this via `/actuator/health`; no bespoke failure handling beyond the existing JPA/transaction boundaries |
 | Redis is unreachable | The auth rate limiter logs a warning and allows the request rather than failing authentication — Redis is treated as optional, not load-bearing, for this MVP |
 | A presented refresh token is expired, revoked, or unknown | `AuthService.refresh`/`logout` reject with the same generic `AuthenticationException` in all three cases, so a caller can't distinguish them |
+| A child's tutor/homework question matches the safety denylist | `ContentSafetyFilter.isSafe` returns false before any AI call is made; the service returns a safe redirect message without ever contacting the AI client (no cost incurred, no unsafe round-trip) |
+| A real AI response matches the safety denylist, or exceeds the length cap | Treated as untrusted output: the response is discarded and the service falls back to the deterministic offline template for that request, the same as an outright API failure |
+| A child exceeds the per-child AI rate limit | `AiRateLimitFilter` returns 429 before the request reaches the controller; fails open (allows the request) if Redis is unreachable, consistent with the existing auth rate limiter |
+| A parent confirms account deletion with the wrong password | `AuthService.deleteAccount` throws `AuthenticationException` (mapped to 401); the account and all child data are untouched |
 
 ## What I'd do with more time
 
@@ -90,8 +118,12 @@ the default and a real Anthropic Messages API client as the opt-in path.
   an API key is available.
 - Add on-device voice input/output (`speech_to_text` + `flutter_tts`) and verify it on a real
   device or emulator.
-- Add per-child/session rate limiting and a budget cap on the AI-backed endpoints specifically,
-  before ever turning on a real API key in a shared environment.
+- Add a real per-child/per-day *budget cap* (dollars, not just requests-per-minute) on the
+  AI-backed endpoints before ever turning on a real API key in a shared environment — the
+  requests-per-minute limiter built in this pass bounds request *rate*, not total spend.
+- Replace the keyword-denylist content safety filter with (or supplement it with) the AI
+  provider's own moderation/safety behavior once a real `ANTHROPIC_API_KEY` is in use and that
+  behavior has actually been observed.
 - Build a stateful tutor-session resource (closer to the master spec's example route) with real
   "learning memory" across a conversation.
 - Add automatic silent token refresh on a 401, with a single-flight guard against concurrent
@@ -101,3 +133,6 @@ the default and a real Anthropic Messages API client as the opt-in path.
   signal.
 - Build the teacher dashboard and the Year 2/3 roadmap items once the family-facing MVP has real
   usage data to justify them.
+- Run a real accessibility pass (VoiceOver/TalkBack walkthrough, WCAG AA contrast check, dynamic
+  text scaling) on a physical device or simulator once one is available — see the mobile
+  accessibility note above for what's already true without one.

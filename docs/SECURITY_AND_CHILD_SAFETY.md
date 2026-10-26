@@ -48,27 +48,48 @@ boundary of this document (technical mechanics only — not a compliance certifi
   prompt — `TutorService`/`HomeworkService` build the prompt from only the current question,
   optional subject hint, and (for the tutor) the strategy name; nothing else from the request or
   from the database is interpolated into it.
+- **Content safety filter, checked on both directions** (`ContentSafetyFilter`): a child's
+  question is checked *before* any AI call is made — an unsafe question is refused with a safe
+  redirect message without the AI client ever being invoked, so no unsafe round-trip happens and
+  no cost is incurred. A real AI model's response is checked the same way and capped at 800
+  characters before being returned; a response that fails either check is discarded in favor of
+  the deterministic offline template, exactly like a provider failure. This is a keyword denylist
+  (self-harm, violence, drugs/alcohol, sexual content, weapons, and common PII categories like
+  address/phone/SSN/credit-card/password) — a real but narrow baseline, not comprehensive
+  moderation; see RISKS_AND_TRADEOFFS.md "Known limitations."
+- **Per-child rate limiting on the AI-backed endpoints** (`AiRateLimitFilter`, Redis-backed,
+  fails open): default 20 requests/minute/child (`AI_RATE_LIMIT_PER_MINUTE`), separate from and in
+  addition to the existing IP-based auth rate limiter — closes the "do not enable a real API key
+  in a shared environment until this exists" gap this document previously flagged. This bounds
+  request *rate*, not total spend; a real dollar budget cap is still a listed next step.
+- **Account deletion requires re-confirming the password**, not just a valid access token
+  (`DELETE /api/v1/auth/me`, `AuthService.deleteAccount`) — a stolen/still-valid access token
+  alone cannot delete the account. Deletion cascades to every child profile and all their data at
+  the database level (`ON DELETE CASCADE` from `child_profiles`/`refresh_tokens` to
+  `parent_accounts`), so there is no code path that deletes the account but leaves orphaned child
+  data behind.
+- **Every request carries a correlation ID through its logs** (`CorrelationIdFilter`, via MDC),
+  echoed back in the `X-Correlation-Id` response header — lets a specific parent-reported incident
+  be traced through logs without logging any request/response body content.
 
 ## Known gaps (stated plainly, not hidden)
 
-- **No structured/schema-validated AI output contract yet.** The real Anthropic response is
-  treated as a single text blob (split on newlines for the homework helper's step list); there is
-  no JSON-schema-constrained response format, no explicit refusal-detection, and no automated check
-  that a real model's output stays within an age-appropriate vocabulary or length bound beyond
-  `max_tokens: 300`. This is a real gap against the master spec's "use a strict response schema...
-  validate model output... limit response length... refuse or safely redirect inappropriate
-  requests" — because `ANTHROPIC_API_KEY` is not configured in this environment, the real-provider
-  path has never actually been exercised against a live model, so building elaborate output
-  validation against a response shape nobody has observed risked validating the wrong thing. This
-  is the top-priority item for whoever next has a real API key — see `docs/DEVELOPMENT_PLAN.md`
-  Phase 4.
+- **No JSON-schema-constrained AI output contract yet.** The real Anthropic response is still
+  treated as a text blob (split on newlines for the homework helper's step list) with a keyword
+  safety check and an 800-character cap layered on top (see "Implemented" above) — there is no
+  schema-constrained response format, and no automated check that a real model's output stays
+  within an age-appropriate *vocabulary*, only within a safety-keyword and length bound. Because
+  `ANTHROPIC_API_KEY` is still not configured in this environment, the real-provider path has
+  never actually been exercised against a live model, so building a stricter schema against a
+  response shape nobody has observed still risks validating the wrong thing. Top-priority item for
+  whoever next has a real API key — see `docs/DEVELOPMENT_PLAN.md` Phase 4.
 - **No request-size limit specific to the tutor/homework endpoints** beyond Spring's default
-  request body size limits and Bean Validation's `@NotBlank`. A child/parent could submit a very
-  long "question" today.
-- **No per-child or per-session rate limit on tutor/homework calls**, only the IP-based limit on
-  the auth endpoints. If a real API key is ever configured, this is a real cost-control gap before
-  that happens, not after — do not turn on `ANTHROPIC_API_KEY` in a shared/production environment
-  until this is fixed.
+  request body size limits and Bean Validation's `@NotBlank @Size(max = 500)` on the question
+  field (added this pass).
+- **No dollar-value budget cap on AI calls**, only a requests-per-minute-per-child rate limit (see
+  "Implemented" above). A sustained stream of requests under the per-minute limit could still add
+  up to real cost over a day; a real deployment should add a daily/monthly spend cap before
+  turning on a real API key at any scale.
 - **No access-token revocation/blocklist.** Logout only revokes the refresh token; a still-valid
   access token keeps working until its own short expiry. Accepted trade-off for an MVP given the
   short TTL; a stateful blocklist (likely Redis-backed, reusing the dependency already present)
@@ -76,10 +97,12 @@ boundary of this document (technical mechanics only — not a compliance certifi
 - **No scheduled purge of expired/revoked refresh tokens.** The table grows unboundedly over time
   in a long-running deployment. Not fixed here.
 - **No parent-verification gate for parent-only mobile settings screens** — there are no
-  parent-only settings screens implemented yet at all (mobile Phase 3 is not revisited in this
-  pass beyond what already existed), so there is nothing to gate today, but when they are built,
-  remember the master spec's explicit warning: hiding a button behind a tab is not the same as
-  authorizing the action server-side.
+  parent-only settings screens implemented yet at all, so there is nothing to gate today, but when
+  they are built, remember the master spec's explicit warning: hiding a button behind a tab is not
+  the same as authorizing the action server-side. This includes account deletion specifically:
+  `DELETE /api/v1/auth/me` is implemented and password-gated server-side (see "Implemented"
+  above), but there is no mobile UI that calls it yet — this pass was backend-only for that
+  endpoint.
 - **HTTPS is a deployment-time requirement, not something this codebase enforces.** Nothing here
   rejects a plaintext HTTP connection at the application layer; that is the job of the reverse
   proxy/load balancer in front of it (e.g. an ALB or CloudFront in the eventual AWS deployment —
