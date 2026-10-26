@@ -1,6 +1,11 @@
 # NovaLearn Mobile
 
-Flutter client for Sprint 2: parent authentication, secure JWT session storage, child profiles, a Grade 1 Math lesson, progress sync, and a parent progress dashboard.
+Flutter client: parent authentication, secure JWT session storage, child profiles, a dynamic
+lesson list across Math and English, progress sync, an AI tutor screen ("try another way" rotates
+through step-by-step/story/real-life-example explanations), a homework helper screen (type a
+question — there's no photo/OCR scanning yet, see the backend's RISKS_AND_TRADEOFFS.md), and a
+parent dashboard showing weekly completions, average score, coins, streak, and a strongest/weakest
+subject signal.
 
 ## Run
 
