@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: novalearn-api
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/novalearn}
+    username: ${DATABASE_USERNAME:novalearn}
+    password: ${DATABASE_PASSWORD:novalearn}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  jackson:
+    default-property-inclusion: non_null
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+server:
+  shutdown: graceful
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+novalearn:
+  security:
+    jwt-secret: ${JWT_SECRET}
+    access-token-ttl-seconds: ${JWT_ACCESS_TOKEN_TTL_SECONDS:3600}
+    refresh-token-ttl-days: ${JWT_REFRESH_TOKEN_TTL_DAYS:30}
+  rate-limit:
+    auth-attempts-per-minute: ${AUTH_RATE_LIMIT_PER_MINUTE:10}
