@@ -1,0 +1,21 @@
+name: novalearn_mobile
+description: NovaLearn child learning and parent progress companion.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_secure_storage: ^10.3.1
+  http: ^1.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
