@@ -51,70 +51,107 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        body: SafeArea(
-            child: Center(
-                child: SingleChildScrollView(
-                    child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Form(
-                  key: _formKey,
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: <Widget>[
-                        const Icon(Icons.auto_awesome,
-                            size: 64, color: Color(0xff6246ea)),
-                        const SizedBox(height: 16),
-                        Text('NovaLearn',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.displaySmall),
-                        const SizedBox(height: 8),
-                        Text(
-                            _registering
-                                ? 'Create your parent account'
-                                : 'Welcome back, parent!',
-                            textAlign: TextAlign.center),
-                        const SizedBox(height: 32),
-                        TextFormField(
-                            controller: _email,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration:
-                                const InputDecoration(labelText: 'Email'),
-                            validator: (String? value) =>
-                                value != null && value.contains('@')
-                                    ? null
-                                    : 'Enter a valid email'),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                            controller: _password,
-                            obscureText: true,
-                            decoration:
-                                const InputDecoration(labelText: 'Password'),
-                            validator: (String? value) =>
-                                value != null && value.length >= 12
-                                    ? null
-                                    : 'Use at least 12 characters'),
-                        const SizedBox(height: 24),
-                        FilledButton(
-                            onPressed: _submitting ? null : _submit,
-                            child: _submitting
-                                ? const SizedBox.square(
-                                    dimension: 20,
-                                    child: CircularProgressIndicator())
-                                : Text(_registering
-                                    ? 'Create account'
-                                    : 'Sign in')),
-                        TextButton(
-                            onPressed: _submitting
-                                ? null
-                                : () => setState(
-                                    () => _registering = !_registering),
-                            child: Text(_registering
-                                ? 'Already have an account? Sign in'
-                                : 'New to NovaLearn? Create an account')),
-                      ]))),
-        )))),
-      );
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: <Color>[scheme.primaryContainer.withValues(alpha: 0.55), scheme.surface],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(28, 36, 28, 28),
+                      child: Form(
+                          key: _formKey,
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: <Widget>[
+                                Center(
+                                  child: Container(
+                                    width: 72,
+                                    height: 72,
+                                    decoration: BoxDecoration(
+                                        color: scheme.primaryContainer, shape: BoxShape.circle),
+                                    child: Icon(Icons.auto_awesome,
+                                        size: 36, color: scheme.onPrimaryContainer),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                Text('NovaLearn',
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context).textTheme.displaySmall),
+                                const SizedBox(height: 8),
+                                Text(
+                                    _registering
+                                        ? 'Create your parent account'
+                                        : 'Welcome back, parent!',
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyLarge
+                                        ?.copyWith(color: scheme.onSurfaceVariant)),
+                                const SizedBox(height: 32),
+                                TextFormField(
+                                    controller: _email,
+                                    keyboardType: TextInputType.emailAddress,
+                                    decoration: const InputDecoration(
+                                        labelText: 'Email',
+                                        prefixIcon: Icon(Icons.mail_outline)),
+                                    validator: (String? value) =>
+                                        value != null && value.contains('@')
+                                            ? null
+                                            : 'Enter a valid email'),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                    controller: _password,
+                                    obscureText: true,
+                                    decoration: const InputDecoration(
+                                        labelText: 'Password',
+                                        prefixIcon: Icon(Icons.lock_outline)),
+                                    validator: (String? value) =>
+                                        value != null && value.length >= 12
+                                            ? null
+                                            : 'Use at least 12 characters'),
+                                const SizedBox(height: 28),
+                                FilledButton(
+                                    onPressed: _submitting ? null : _submit,
+                                    child: _submitting
+                                        ? const SizedBox.square(
+                                            dimension: 20,
+                                            child: CircularProgressIndicator(
+                                                color: Colors.white, strokeWidth: 2.5))
+                                        : Text(_registering
+                                            ? 'Create account'
+                                            : 'Sign in')),
+                                const SizedBox(height: 4),
+                                TextButton(
+                                    onPressed: _submitting
+                                        ? null
+                                        : () => setState(
+                                            () => _registering = !_registering),
+                                    child: Text(_registering
+                                        ? 'Already have an account? Sign in'
+                                        : 'New to NovaLearn? Create an account')),
+                              ])),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

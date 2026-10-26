@@ -25,7 +25,9 @@ class _ChildPickerState extends State<ChildPicker> {
 
   Future<List<Child>> _load() =>
       widget.childrenRepository.children(widget.token);
-  void _reload() => setState(() => _children = _load());
+  void _reload() => setState(() {
+        _children = _load();
+      });
   @override
   Widget build(BuildContext context) => FutureBuilder<List<Child>>(
       future: _children,
@@ -58,19 +60,45 @@ class _NewChildPrompt extends StatelessWidget {
   final ChildrenRepository repository;
   final VoidCallback onCreated;
   @override
-  Widget build(BuildContext context) => Center(
-      child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: FilledButton.icon(
-              icon: const Icon(Icons.person_add),
-              label: const Text('Add your child'),
-              onPressed: () async {
-                final Child? result = await showDialog<Child>(
-                    context: context,
-                    builder: (_) =>
-                        _ChildDialog(token: token, repository: repository));
-                if (result != null) onCreated();
-              })));
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    return Center(
+        child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Container(
+                      width: 96,
+                      height: 96,
+                      decoration:
+                          BoxDecoration(color: scheme.primaryContainer, shape: BoxShape.circle),
+                      child: Icon(Icons.family_restroom_rounded,
+                          size: 48, color: scheme.onPrimaryContainer)),
+                  const SizedBox(height: 24),
+                  Text("Let's set up your child's profile",
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  Text('Add their name and birthday to get started with NovaLearn.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(color: scheme.onSurfaceVariant)),
+                  const SizedBox(height: 24),
+                  FilledButton.icon(
+                      icon: const Icon(Icons.person_add),
+                      label: const Text('Add your child'),
+                      onPressed: () async {
+                        final Child? result = await showDialog<Child>(
+                            context: context,
+                            builder: (_) =>
+                                _ChildDialog(token: token, repository: repository));
+                        if (result != null) onCreated();
+                      }),
+                ])));
+  }
 }
 
 class _ChildDialog extends StatefulWidget {

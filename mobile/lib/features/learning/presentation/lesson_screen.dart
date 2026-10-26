@@ -58,59 +58,105 @@ class _LessonScreenState extends State<LessonScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final int total = widget.lesson.exercises.length;
+    return Scaffold(
       appBar: AppBar(title: Text(widget.lesson.title)),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: <Widget>[
-          Text('Question ${_index + 1} of ${widget.lesson.exercises.length}',
-              style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 12),
+          Row(
+            children: <Widget>[
+              Expanded(
+                  child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                          value: (_index + 1) / total,
+                          minHeight: 8,
+                          backgroundColor: scheme.surfaceContainerHighest))),
+              const SizedBox(width: 12),
+              Text('${_index + 1} / $total',
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelLarge
+                      ?.copyWith(color: scheme.onSurfaceVariant)),
+            ],
+          ),
+          const SizedBox(height: 20),
           Card(
               child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text(_current.prompt, style: Theme.of(context).textTheme.titleMedium),
+                        Text(_current.prompt, style: Theme.of(context).textTheme.titleLarge),
+                        const SizedBox(height: 4),
                         RadioGroup<int>(
                             groupValue: _selectedChoice,
                             onChanged: (int? value) {
                               if (_evaluation == null) setState(() => _selectedChoice = value);
                             },
                             child: Column(
-                                children: List<Widget>.generate(
-                                    _current.choices.length,
-                                    (int choice) => RadioListTile<int>(
-                                        title: Text(_current.choices[choice]),
-                                        value: choice))))
+                                children: List<Widget>.generate(_current.choices.length, (int choice) {
+                              final bool selected = _selectedChoice == choice;
+                              return Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Material(
+                                      color: selected
+                                          ? scheme.primaryContainer
+                                          : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: RadioListTile<int>(
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(14)),
+                                          title: Text(_current.choices[choice],
+                                              style: TextStyle(
+                                                  fontWeight: selected
+                                                      ? FontWeight.w700
+                                                      : FontWeight.w500)),
+                                          value: choice)));
+                            })))
                       ]))),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           if (_evaluation == null)
             FilledButton(
                 onPressed: _selectedChoice == null || _submitting ? null : _submit,
                 child: _submitting
-                    ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator())
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
                     : const Text('Submit answer'))
           else ...<Widget>[
             Card(
-                color: _evaluation!.correct
-                    ? Theme.of(context).colorScheme.primaryContainer
-                    : Theme.of(context).colorScheme.errorContainer,
+                color: _evaluation!.correct ? scheme.primaryContainer : scheme.errorContainer,
                 child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Column(
+                    child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          Text(_evaluation!.correct ? 'Correct!' : 'Not quite',
-                              style: Theme.of(context).textTheme.titleMedium),
-                          const SizedBox(height: 8),
-                          Text(_evaluation!.explanation),
-                          if (_evaluation!.hint != null) ...<Widget>[
-                            const SizedBox(height: 8),
-                            Text('Hint: ${_evaluation!.hint}',
-                                style: Theme.of(context).textTheme.bodySmall),
-                          ],
+                          Icon(
+                              _evaluation!.correct
+                                  ? Icons.check_circle_rounded
+                                  : Icons.lightbulb_rounded,
+                              color: _evaluation!.correct
+                                  ? scheme.onPrimaryContainer
+                                  : scheme.onErrorContainer),
+                          const SizedBox(width: 12),
+                          Expanded(
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Text(_evaluation!.correct ? 'Correct!' : 'Not quite',
+                                        style: Theme.of(context).textTheme.titleMedium),
+                                    const SizedBox(height: 6),
+                                    Text(_evaluation!.explanation),
+                                    if (_evaluation!.hint != null) ...<Widget>[
+                                      const SizedBox(height: 8),
+                                      Text('Hint: ${_evaluation!.hint}',
+                                          style: Theme.of(context).textTheme.bodySmall),
+                                    ],
+                                  ])),
                         ]))),
             const SizedBox(height: 12),
             FilledButton(
@@ -118,5 +164,7 @@ class _LessonScreenState extends State<LessonScreen> {
                 child: Text(_isLast ? 'Finish lesson' : 'Next question')),
           ],
         ],
-      ));
+      ),
+    );
+  }
 }

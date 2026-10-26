@@ -46,24 +46,32 @@ class ParentDashboard extends StatelessWidget {
             Expanded(
                 child: _Metric(
                     label: 'This week',
-                    value: '${dashboard.lessonsCompletedThisWeek}')),
+                    value: '${dashboard.lessonsCompletedThisWeek}',
+                    icon: Icons.calendar_today_rounded,
+                    color: const Color(0xff2563eb))),
             const SizedBox(width: 12),
             Expanded(
                 child: _Metric(
                     label: 'Average score',
-                    value: '${dashboard.averageScore}%')),
+                    value: '${dashboard.averageScore}%',
+                    icon: Icons.trending_up_rounded,
+                    color: const Color(0xff16a34a))),
           ]),
           const SizedBox(height: 12),
           Row(children: <Widget>[
             Expanded(
                 child: _Metric(
-                    label: 'Coins', value: '${dashboard.coins}', icon: Icons.stars)),
+                    label: 'Coins',
+                    value: '${dashboard.coins}',
+                    icon: Icons.stars_rounded,
+                    color: const Color(0xffd97706))),
             const SizedBox(width: 12),
             Expanded(
                 child: _Metric(
                     label: 'Day streak',
                     value: '${dashboard.currentStreak}',
-                    icon: Icons.local_fire_department)),
+                    icon: Icons.local_fire_department_rounded,
+                    color: const Color(0xffdc2626))),
           ]),
           if (dashboard.strongestSubject != null) ...<Widget>[
             const SizedBox(height: 12),
@@ -122,10 +130,11 @@ class ParentDashboard extends StatelessWidget {
 }
 
 class _Metric extends StatelessWidget {
-  const _Metric({required this.label, required this.value, this.icon});
+  const _Metric({required this.label, required this.value, required this.icon, required this.color});
   final String label;
   final String value;
-  final IconData? icon;
+  final IconData icon;
+  final Color color;
   @override
   Widget build(BuildContext context) => Card(
       child: Padding(
@@ -133,13 +142,17 @@ class _Metric extends StatelessWidget {
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Row(children: <Widget>[
-                  if (icon != null) ...<Widget>[
-                    Icon(icon, size: 20),
-                    const SizedBox(width: 6),
-                  ],
-                  Text(value, style: Theme.of(context).textTheme.headlineSmall),
-                ]),
-                Text(label)
+                Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+                    child: Icon(icon, size: 18, color: color)),
+                const SizedBox(height: 10),
+                Text(value, style: Theme.of(context).textTheme.headlineSmall),
+                Text(label,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               ])));
 }

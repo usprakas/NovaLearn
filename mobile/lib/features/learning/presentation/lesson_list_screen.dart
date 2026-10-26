@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../children/domain/child.dart';
 import '../domain/exercise_repository.dart';
 import '../domain/lesson.dart';
@@ -63,18 +64,39 @@ class _LessonListTabState extends State<LessonListTab> {
         return ListView(padding: const EdgeInsets.all(24), children: <Widget>[
           Text('Hi, ${widget.child.displayName}!',
               style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 8),
-          const Text("Ready for today's learning adventure?"),
+          const SizedBox(height: 4),
+          Text("Ready for today's learning adventure?",
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           const SizedBox(height: 24),
-          ...lessons.map((LessonSummary summary) => Card(
-              child: ListTile(
-                  leading: Icon(summary.subject == 'MATH'
-                      ? Icons.calculate_outlined
-                      : Icons.menu_book_outlined),
-                  title: Text(summary.title),
-                  subtitle: Text(summary.description),
-                  trailing: const Icon(Icons.play_arrow),
-                  onTap: () => _openLesson(summary)))),
+          ...lessons.map((LessonSummary summary) {
+            final Color subjectColor = AppTheme.subjectColor(context, summary.subject);
+            return Card(
+                child: ListTile(
+                    contentPadding: const EdgeInsets.all(12),
+                    leading: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                            color: subjectColor.withValues(alpha: 0.15),
+                            shape: BoxShape.circle),
+                        child: Icon(AppTheme.subjectIcon(summary.subject),
+                            color: subjectColor)),
+                    title: Text(summary.title,
+                        style: Theme.of(context).textTheme.titleMedium),
+                    subtitle: Text(summary.description),
+                    trailing: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primaryContainer,
+                            shape: BoxShape.circle),
+                        child: Icon(Icons.play_arrow,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer, size: 20)),
+                    onTap: () => _openLesson(summary)));
+          }),
         ]);
       });
 }
