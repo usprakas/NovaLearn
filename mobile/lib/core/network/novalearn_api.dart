@@ -1,0 +1,213 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../config/app_config.dart';
+import '../../features/auth/domain/auth_repository.dart';
+import '../../features/children/domain/child.dart';
+import '../../features/children/domain/children_repository.dart';
+import '../../features/homework/domain/homework_guidance.dart';
+import '../../features/homework/domain/homework_repository.dart';
+import '../../features/learning/domain/child_dashboard.dart';
+import '../../features/learning/domain/dashboard_repository.dart';
+import '../../features/learning/domain/lesson.dart';
+import '../../features/learning/domain/lessons_repository.dart';
+import '../../features/learning/domain/progress.dart';
+import '../../features/learning/domain/progress_repository.dart';
+import '../../features/rewards/domain/rewards.dart';
+import '../../features/rewards/domain/rewards_repository.dart';
+import '../../features/tutor/domain/tutor_answer.dart';
+import '../../features/tutor/domain/tutor_repository.dart';
+
+class NovaLearnApi
+    implements
+        AuthRepository,
+        ChildrenRepository,
+        ProgressRepository,
+        LessonsRepository,
+        RewardsRepository,
+        DashboardRepository,
+        TutorRepository,
+        HomeworkRepository {
+  NovaLearnApi({http.Client? client, String? baseUrl})
+      : _client = client ?? http.Client(),
+        _baseUrl = baseUrl ?? AppConfig.apiBaseUrl;
+
+  final http.Client _client;
+  final String _baseUrl;
+
+  @override
+  Future<AuthSession> login(String email, String password) =>
+      _authenticate('/api/v1/auth/login', email, password);
+
+  @override
+  Future<AuthSession> register(String email, String password) =>
+      _authenticate('/api/v1/auth/register', email, password);
+
+  @override
+  Future<List<Child>> children(String token) async {
+    final http.Response response = await _client.get(
+      _uri('/api/v1/children'),
+      headers: _headers(token),
+    );
+    final List<Object?> data = _decodeList(response);
+    return data.cast<Map<String, Object?>>().map(Child.fromJson).toList();
+  }
+
+  @override
+  Future<Child> createChild(String token, ChildDraft draft) async {
+    final http.Response response = await _client.post(
+      _uri('/api/v1/children'),
+      headers: _headers(token),
+      body: jsonEncode(draft.toJson()),
+    );
+    return Child.fromJson(_decodeObject(response));
+  }
+
+  @override
+  Future<List<LessonProgress>> progress(String token, String childId) async {
+    final http.Response response = await _client.get(
+      _uri('/api/v1/children/$childId/progress'),
+      headers: _headers(token),
+    );
+    return _decodeList(response)
+        .cast<Map<String, Object?>>()
+        .map(LessonProgress.fromJson)
+        .toList();
+  }
+
+  @override
+  Future<LessonProgress> recordProgress(
+    String token,
+    String childId,
+    LessonProgressDraft draft,
+  ) async {
+    final http.Response response = await _client.put(
+      _uri('/api/v1/children/$childId/progress/${draft.lessonCode}'),
+      headers: _headers(token),
+      body: jsonEncode(draft.toJson()),
+    );
+    return LessonProgress.fromJson(_decodeObject(response));
+  }
+
+  @override
+  Future<List<LessonSummary>> lessons(String token) async {
+    final http.Response response = await _client.get(
+      _uri('/api/v1/lessons'),
+      headers: _headers(token),
+    );
+    return _decodeList(response)
+        .cast<Map<String, Object?>>()
+        .map(LessonSummary.fromJson)
+        .toList();
+  }
+
+  @override
+  Future<Lesson> lesson(String token, String code) async {
+    final http.Response response = await _client.get(
+      _uri('/api/v1/lessons/$code'),
+      headers: _headers(token),
+    );
+    return Lesson.fromJson(_decodeObject(response));
+  }
+
+  @override
+  Future<ChildRewards> rewards(String token, String childId) async {
+    final http.Response response = await _client.get(
+      _uri('/api/v1/children/$childId/rewards'),
+      headers: _headers(token),
+    );
+    return ChildRewards.fromJson(_decodeObject(response));
+  }
+
+  @override
+  Future<ChildDashboard> dashboard(String token, String childId) async {
+    final http.Response response = await _client.get(
+      _uri('/api/v1/children/$childId/dashboard'),
+      headers: _headers(token),
+    );
+    return ChildDashboard.fromJson(_decodeObject(response));
+  }
+
+  @override
+  Future<TutorAnswer> ask(
+    String token,
+    String childId,
+    String question,
+    String? subject,
+    int attempt,
+  ) async {
+    final http.Response response = await _client.post(
+      _uri('/api/v1/children/$childId/tutor/questions'),
+      headers: _headers(token),
+      body: jsonEncode(<String, Object?>{
+        'question': question,
+        'subject': subject,
+        'attempt': attempt,
+      }),
+    );
+    return TutorAnswer.fromJson(_decodeObject(response));
+  }
+
+  @override
+  Future<HomeworkGuidance> explain(
+    String token,
+    String childId,
+    String questionText,
+  ) async {
+    final http.Response response = await _client.post(
+      _uri('/api/v1/children/$childId/homework/questions'),
+      headers: _headers(token),
+      body: jsonEncode(<String, Object?>{'questionText': questionText}),
+    );
+    return HomeworkGuidance.fromJson(_decodeObject(response));
+  }
+
+  Future<AuthSession> _authenticate(
+    String path,
+    String email,
+    String password,
+  ) async {
+    final http.Response response = await _client.post(
+      _uri(path),
+      headers: _headers(),
+      body: jsonEncode(<String, String>{'email': email, 'password': password}),
+    );
+    final Map<String, Object?> data = _decodeObject(response);
+    return AuthSession(
+      accessToken: data['accessToken']! as String,
+      email: data['email']! as String,
+    );
+  }
+
+  Uri _uri(String path) => Uri.parse('$_baseUrl$path');
+  Map<String, String> _headers([String? token]) => <String, String>{
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      };
+  Map<String, Object?> _decodeObject(http.Response response) {
+    _ensureSuccess(response);
+    return (jsonDecode(response.body) as Map).cast<String, Object?>();
+  }
+
+  List<Object?> _decodeList(http.Response response) {
+    _ensureSuccess(response);
+    return (jsonDecode(response.body) as List).cast<Object?>();
+  }
+
+  void _ensureSuccess(http.Response response) {
+    if (response.statusCode >= 200 && response.statusCode < 300) return;
+    String message = 'Something went wrong. Please try again.';
+    try {
+      message =
+          (jsonDecode(response.body) as Map)['detail'] as String? ?? message;
+    } on FormatException {
+      // The API may be unavailable or return a proxy response.
+    }
+    throw ApiException(statusCode: response.statusCode, message: message);
+  }
+}
+
+class ApiException implements Exception {
+  const ApiException({required this.statusCode, required this.message});
+  final int statusCode;
+  final String message;
+}
