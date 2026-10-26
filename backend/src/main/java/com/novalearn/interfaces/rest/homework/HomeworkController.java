@@ -5,6 +5,7 @@ import com.novalearn.domain.homework.HomeworkGuidance;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -36,7 +37,8 @@ public class HomeworkController {
     return HomeworkGuidanceResponse.from(homework.explain(parentId, childId, request.questionText()));
   }
 
-  public record ExplainHomeworkRequest(@NotBlank String questionText) { }
+  /** Capped at 500 characters — "limit message size" per the child-safety requirements. */
+  public record ExplainHomeworkRequest(@NotBlank @Size(max = 500) String questionText) { }
 
   public record HomeworkGuidanceResponse(List<String> steps, String finalHint) {
     static HomeworkGuidanceResponse from(HomeworkGuidance guidance) {

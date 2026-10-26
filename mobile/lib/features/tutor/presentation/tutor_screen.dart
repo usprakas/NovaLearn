@@ -87,20 +87,31 @@ class _TutorTabState extends State<TutorTab> {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text(_answer!.strategy.replaceAll('_', ' '),
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelLarge
-                                ?.copyWith(color: Theme.of(context).colorScheme.primary)),
+                        if (!_answer!.refused)
+                          Text(_answer!.strategy.replaceAll('_', ' '),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelLarge
+                                  ?.copyWith(color: Theme.of(context).colorScheme.primary)),
                         const SizedBox(height: 8),
                         Text(_answer!.explanation),
                       ]))),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _loading ? null : () => _ask(tryAnotherWay: true),
-            icon: const Icon(Icons.refresh),
-            label: const Text('Try another way'),
-          ),
+          if (!_answer!.refused) ...<Widget>[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _loading ? null : () => _ask(tryAnotherWay: true),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try another way'),
+            ),
+          ],
+          if (_answer!.suggestedNextActivity != null) ...<Widget>[
+            const SizedBox(height: 12),
+            Card(
+                color: Theme.of(context).colorScheme.secondaryContainer,
+                child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(_answer!.suggestedNextActivity!))),
+          ],
         ],
         if (_error != null) ...<Widget>[
           const SizedBox(height: 16),

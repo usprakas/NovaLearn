@@ -1,10 +1,14 @@
 package com.novalearn.application.tutor;
 
 import com.novalearn.application.ai.AiTextClient;
+import com.novalearn.application.ai.ContentSafetyFilter;
+import com.novalearn.application.catalog.LessonCatalogService;
 import com.novalearn.application.child.ChildProfileRepository;
 import com.novalearn.application.common.ChildNotFoundException;
+import com.novalearn.domain.catalog.LessonDefinition;
 import com.novalearn.domain.tutor.TutorAnswer;
 import com.novalearn.domain.tutor.TutorStrategy;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,16 +20,23 @@ import org.springframework.transaction.annotation.Transactional;
  * from {@link AiTextClient}. Otherwise NovaLearn answers with a deterministic, child-safe
  * template. Each repeated question (the mobile client's "try another way") advances to the next
  * {@link TutorStrategy} instead of repeating the same explanation.
+ *
+ * <p>Both the question and (if a real client is configured) the model's own response pass through
+ * {@link ContentSafetyFilter} — the model's output is untrusted input, not a trusted source, and
+ * a flagged question never reaches the AI client or offline template at all; it gets a safe
+ * redirect instead.
  */
 @Service
 public class TutorService {
 
   private final ChildProfileRepository children;
   private final Optional<AiTextClient> aiClient;
+  private final LessonCatalogService catalog;
 
-  public TutorService(ChildProfileRepository children, Optional<AiTextClient> aiClient) {
+  public TutorService(ChildProfileRepository children, Optional<AiTextClient> aiClient, LessonCatalogService catalog) {
     this.children = children;
     this.aiClient = aiClient;
+    this.catalog = catalog;
   }
 
   @Transactional(readOnly = true)
@@ -38,15 +49,24 @@ public class TutorService {
       throw new InvalidTutorQuestionException();
     }
     TutorStrategy strategy = TutorStrategy.forAttempt(attempt);
+
+    if (!ContentSafetyFilter.isSafe(normalizedQuestion)) {
+      return new TutorAnswer(strategy, safeRedirectMessage(), suggestedNextActivity(subject), true);
+    }
+
     String explanation = aiClient
         .flatMap(client -> tryComplete(client, buildPrompt(strategy, subject, normalizedQuestion)))
         .orElseGet(() -> offlineExplanation(strategy, normalizedQuestion));
-    return new TutorAnswer(strategy, explanation);
+    return new TutorAnswer(strategy, explanation, suggestedNextActivity(subject), false);
   }
 
   private Optional<String> tryComplete(AiTextClient client, String prompt) {
     try {
-      return Optional.of(client.complete(prompt));
+      String response = client.complete(prompt);
+      if (!ContentSafetyFilter.isSafe(response)) {
+        return Optional.empty();
+      }
+      return Optional.of(ContentSafetyFilter.capLength(response));
     } catch (RuntimeException aiCallFailed) {
       return Optional.empty();
     }
@@ -56,6 +76,21 @@ public class TutorService {
     return "You are a patient, encouraging tutor for a child aged 3-10. Subject: "
         + (subject == null ? "general" : subject) + ". Explain using a " + strategy.name().toLowerCase(Locale.ROOT)
         + " approach, in simple words, without ever being scary or negative. The child's question: " + question;
+  }
+
+  private String safeRedirectMessage() {
+    return "That's not something NovaLearn can help with right now. Let's talk about math or "
+        + "reading instead - ask me about a number, a word, or a lesson you're working on!";
+  }
+
+  private String suggestedNextActivity(String subject) {
+    List<LessonDefinition> lessons = catalog.all();
+    return lessons.stream()
+        .filter(lesson -> subject == null || lesson.subject().equalsIgnoreCase(subject))
+        .findFirst()
+        .or(() -> lessons.stream().findFirst())
+        .map(lesson -> "Want more practice? Try the lesson \"" + lesson.title() + "\" in the Learn tab!")
+        .orElse(null);
   }
 
   private String offlineExplanation(TutorStrategy strategy, String question) {
@@ -69,6 +104,12 @@ public class TutorService {
       case REAL_LIFE_EXAMPLE -> "Let's connect this to everyday life: \"" + question + "\". If it's "
           + "about numbers, imagine using toys or snacks to count; if it's about words, try saying "
           + "it out loud to a family member and see if that makes it click.";
+      case VISUAL_ANALOGY -> "Picture this in your mind: \"" + question + "\" is like lining up blocks "
+          + "or drawing dots on paper — one for each thing you're counting or comparing. Try sketching "
+          + "it out so you can see the parts instead of just thinking about them.";
+      case GUIDED_QUESTION -> "Let's figure this out together with a question: looking at \""
+          + question + "\", what do you already know, and what is it asking you to find? Try answering "
+          + "that first, one small piece at a time.";
     };
   }
 }

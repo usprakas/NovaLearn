@@ -1,6 +1,7 @@
 package com.novalearn.application.homework;
 
 import com.novalearn.application.ai.AiTextClient;
+import com.novalearn.application.ai.ContentSafetyFilter;
 import com.novalearn.application.child.ChildProfileRepository;
 import com.novalearn.application.common.ChildNotFoundException;
 import com.novalearn.domain.homework.HomeworkGuidance;
@@ -16,7 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
  * NovaLearn's "homework scanner" vision from the PRD needs a vision/OCR API this environment has
  * no credentials for, so the mobile client asks the parent or child to type the question instead.
  * See RISKS_AND_TRADEOFFS.md. The actual guidance generation follows the same offline/real-LLM
- * split as {@link com.novalearn.application.tutor.TutorService}.
+ * split, and the same input/output content-safety treatment, as
+ * {@link com.novalearn.application.tutor.TutorService}.
  */
 @Service
 public class HomeworkService {
@@ -38,6 +40,11 @@ public class HomeworkService {
     if (question.isEmpty()) {
       throw new InvalidHomeworkQuestionException();
     }
+    if (!ContentSafetyFilter.isSafe(question)) {
+      return new HomeworkGuidance(
+          List.of("That question isn't something NovaLearn can help with."),
+          "Ask a parent, or try a different homework question!");
+    }
     return aiClient
         .flatMap(client -> tryComplete(client, buildPrompt(question)))
         .map(this::fromAiResponse)
@@ -46,7 +53,11 @@ public class HomeworkService {
 
   private Optional<String> tryComplete(AiTextClient client, String prompt) {
     try {
-      return Optional.of(client.complete(prompt));
+      String response = client.complete(prompt);
+      if (!ContentSafetyFilter.isSafe(response)) {
+        return Optional.empty();
+      }
+      return Optional.of(ContentSafetyFilter.capLength(response));
     } catch (RuntimeException aiCallFailed) {
       return Optional.empty();
     }

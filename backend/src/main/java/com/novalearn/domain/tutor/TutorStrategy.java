@@ -4,7 +4,9 @@ package com.novalearn.domain.tutor;
 public enum TutorStrategy {
   STEP_BY_STEP,
   STORY,
-  REAL_LIFE_EXAMPLE;
+  REAL_LIFE_EXAMPLE,
+  VISUAL_ANALOGY,
+  GUIDED_QUESTION;
 
   public static TutorStrategy forAttempt(int attempt) {
     TutorStrategy[] strategies = values();

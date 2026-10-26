@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -37,11 +38,12 @@ public class TutorController {
     return TutorAnswerResponse.from(answer);
   }
 
-  public record AskTutorRequest(@NotBlank String question, String subject, @Min(0) int attempt) { }
+  /** {@code question} is capped at 500 characters — "limit message size" per the child-safety requirements. */
+  public record AskTutorRequest(@NotBlank @Size(max = 500) String question, String subject, @Min(0) int attempt) { }
 
-  public record TutorAnswerResponse(String strategy, String explanation) {
+  public record TutorAnswerResponse(String strategy, String explanation, String suggestedNextActivity, boolean refused) {
     static TutorAnswerResponse from(TutorAnswer answer) {
-      return new TutorAnswerResponse(answer.strategy().name(), answer.explanation());
+      return new TutorAnswerResponse(answer.strategy().name(), answer.explanation(), answer.suggestedNextActivity(), answer.refused());
     }
   }
 }
