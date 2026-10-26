@@ -19,6 +19,9 @@ spring:
       port: ${REDIS_PORT:6379}
 server:
   shutdown: graceful
+logging:
+  pattern:
+    level: "%5p [%X{correlationId}]"
 management:
   endpoints:
     web:
@@ -31,3 +34,4 @@ novalearn:
     refresh-token-ttl-days: ${JWT_REFRESH_TOKEN_TTL_DAYS:30}
   rate-limit:
     auth-attempts-per-minute: ${AUTH_RATE_LIMIT_PER_MINUTE:10}
+    ai-requests-per-minute: ${AI_RATE_LIMIT_PER_MINUTE:20}

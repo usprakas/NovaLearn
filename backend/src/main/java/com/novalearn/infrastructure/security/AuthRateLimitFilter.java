@@ -6,31 +6,25 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.Duration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Fixed-window rate limit on POST /api/v1/auth/** (register/login/refresh/logout), backed by
- * Redis, keyed by client IP. Redis is an optional dependency for this MVP: if it is unreachable,
- * the filter logs a warning and allows the request rather than failing the whole API.
+ * Fixed-window rate limit on POST /api/v1/auth/** (register/login/refresh/logout), keyed by
+ * client IP. See {@link RedisFixedWindowRateLimiter} for the fail-open behavior if Redis is down.
  */
 @Component
 public class AuthRateLimitFilter extends OncePerRequestFilter {
 
-  private static final Logger log = LoggerFactory.getLogger(AuthRateLimitFilter.class);
-
-  private final StringRedisTemplate redis;
+  private final RedisFixedWindowRateLimiter limiter;
   private final int limitPerMinute;
 
   public AuthRateLimitFilter(
-      StringRedisTemplate redis,
+      RedisFixedWindowRateLimiter limiter,
       @Value("${novalearn.rate-limit.auth-attempts-per-minute:10}") int limitPerMinute) {
-    this.redis = redis;
+    this.limiter = limiter;
     this.limitPerMinute = limitPerMinute;
   }
 
@@ -42,17 +36,9 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
       return;
     }
     String key = "ratelimit:auth:" + clientKey(request) + ":" + currentMinuteBucket();
-    try {
-      Long count = redis.opsForValue().increment(key);
-      if (count != null && count == 1L) {
-        redis.expire(key, Duration.ofMinutes(1));
-      }
-      if (count != null && count > limitPerMinute) {
-        response.sendError(HttpStatus.TOO_MANY_REQUESTS.value(), "Too many requests, please try again later");
-        return;
-      }
-    } catch (RuntimeException redisUnavailable) {
-      log.warn("Rate limiter could not reach Redis; allowing the request without a limit check", redisUnavailable);
+    if (!limiter.tryAcquire(key, limitPerMinute, Duration.ofMinutes(1))) {
+      response.sendError(HttpStatus.TOO_MANY_REQUESTS.value(), "Too many requests, please try again later");
+      return;
     }
     chain.doFilter(request, response);
   }

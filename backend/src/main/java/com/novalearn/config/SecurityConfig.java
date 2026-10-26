@@ -1,5 +1,7 @@
 package com.novalearn.config;
 
+import com.novalearn.infrastructure.logging.CorrelationIdFilter;
+import com.novalearn.infrastructure.security.AiRateLimitFilter;
 import com.novalearn.infrastructure.security.AuthRateLimitFilter;
 import com.novalearn.infrastructure.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
@@ -14,7 +16,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
   @Bean
-  SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwt, AuthRateLimitFilter rateLimit) throws Exception {
+  SecurityFilterChain securityFilterChain(
+      HttpSecurity http,
+      JwtAuthenticationFilter jwt,
+      AuthRateLimitFilter authRateLimit,
+      AiRateLimitFilter aiRateLimit,
+      CorrelationIdFilter correlationId)
+      throws Exception {
     return http
         .csrf(c -> c.disable())
         .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -23,7 +31,9 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll()
             .anyRequest().hasRole("PARENT"))
         .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class)
-        .addFilterBefore(rateLimit, JwtAuthenticationFilter.class)
+        .addFilterBefore(authRateLimit, JwtAuthenticationFilter.class)
+        .addFilterBefore(aiRateLimit, JwtAuthenticationFilter.class)
+        .addFilterBefore(correlationId, AuthRateLimitFilter.class)
         .build();
   }
 }
