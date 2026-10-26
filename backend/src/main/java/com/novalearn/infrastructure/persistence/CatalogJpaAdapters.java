@@ -63,6 +63,10 @@ class JpaExerciseAdapter implements ExerciseRepository {
   }
 
   private static Exercise map(ExerciseEntity e) {
-    return new Exercise(e.getId(), e.getLessonCode(), e.getSkillCode(), e.getOrder(), e.getPrompt(), e.getChoices());
+    // List.copyOf forces the lazy @ElementCollection to materialize here, while the JPA session
+    // from the calling @Transactional method is still open — without this, the Exercise record
+    // would carry a live Hibernate proxy that throws LazyInitializationException the moment
+    // something (e.g. JSON serialization) touches it after the session closes.
+    return new Exercise(e.getId(), e.getLessonCode(), e.getSkillCode(), e.getOrder(), e.getPrompt(), List.copyOf(e.getChoices()));
   }
 }
