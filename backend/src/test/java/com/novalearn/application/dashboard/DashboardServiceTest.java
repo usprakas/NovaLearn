@@ -9,6 +9,7 @@ import com.novalearn.application.catalog.LessonCatalogService;
 import com.novalearn.application.child.ChildProfileRepository;
 import com.novalearn.application.progress.LessonProgressRepository;
 import com.novalearn.application.rewards.RewardsService;
+import com.novalearn.domain.catalog.LessonDefinition;
 import com.novalearn.domain.dashboard.ChildDashboard;
 import com.novalearn.domain.progress.LessonProgress;
 import com.novalearn.domain.rewards.ChildRewardsSummary;
@@ -47,6 +48,31 @@ class DashboardServiceTest {
     assertThat(dashboard.weakestSubject()).isEqualTo("ENGLISH");
     assertThat(dashboard.coins()).isEqualTo(25);
     assertThat(dashboard.currentStreak()).isEqualTo(2);
+    assertThat(dashboard.recommendedNextLessonCode()).isNull();
+  }
+
+  @Test
+  void recommendsTheFirstCatalogLessonTheChildHasNotYetCompleted() {
+    ChildProfileRepository children = mock(ChildProfileRepository.class);
+    LessonProgressRepository progress = mock(LessonProgressRepository.class);
+    RewardsService rewards = mock(RewardsService.class);
+    LessonCatalogService catalog = mock(LessonCatalogService.class);
+    UUID parent = UUID.randomUUID();
+    UUID child = UUID.randomUUID();
+    when(children.belongsToParent(child, parent)).thenReturn(true);
+    when(progress.findByChildId(child)).thenReturn(List.of(
+        new LessonProgress(UUID.randomUUID(), child, "G1-ADD-01", 100, true, Instant.now())));
+    when(catalog.subjectOf("G1-ADD-01")).thenReturn(Optional.of("MATH"));
+    when(catalog.all()).thenReturn(List.of(
+        new LessonDefinition("G1-ADD-01", "MATH", 1, "Adding", "desc"),
+        new LessonDefinition("G1-SUB-01", "MATH", 2, "Subtracting", "desc")));
+    when(rewards.get(parent, child)).thenReturn(new ChildRewardsSummary(0, 0, 0, null));
+    DashboardService service = new DashboardService(children, progress, rewards, catalog);
+
+    ChildDashboard dashboard = service.get(parent, child);
+
+    assertThat(dashboard.recommendedNextLessonCode()).isEqualTo("G1-SUB-01");
+    assertThat(dashboard.recommendedNextLessonTitle()).isEqualTo("Subtracting");
   }
 
   @Test

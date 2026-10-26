@@ -5,6 +5,7 @@ import com.novalearn.application.child.ChildProfileRepository;
 import com.novalearn.application.common.ChildNotFoundException;
 import com.novalearn.application.progress.LessonProgressRepository;
 import com.novalearn.application.rewards.RewardsService;
+import com.novalearn.domain.catalog.LessonDefinition;
 import com.novalearn.domain.dashboard.ChildDashboard;
 import com.novalearn.domain.progress.LessonProgress;
 import com.novalearn.domain.rewards.ChildRewardsSummary;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,7 +69,21 @@ public class DashboardService {
     }
 
     ChildRewardsSummary childRewards = rewards.get(parentId, childId);
+    LessonDefinition recommended = recommendNextLesson(attempts);
     return new ChildDashboard((int) completedThisWeek, attempts.size(), averageScore, strongestSubject, weakestSubject,
-        childRewards.coins(), childRewards.currentStreak(), childRewards.longestStreak());
+        childRewards.coins(), childRewards.currentStreak(), childRewards.longestStreak(),
+        recommended == null ? null : recommended.code(), recommended == null ? null : recommended.title());
+  }
+
+  /** The first catalog lesson, in display order, the child has not yet completed — a plain "next up," not a personalized recommendation. */
+  private LessonDefinition recommendNextLesson(List<LessonProgress> attempts) {
+    Set<String> completedLessonCodes = attempts.stream()
+        .filter(LessonProgress::completed)
+        .map(LessonProgress::lessonCode)
+        .collect(java.util.stream.Collectors.toSet());
+    return catalog.all().stream()
+        .filter(lesson -> !completedLessonCodes.contains(lesson.code()))
+        .findFirst()
+        .orElse(null);
   }
 }

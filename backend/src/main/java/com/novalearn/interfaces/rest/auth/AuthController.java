@@ -8,6 +8,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -48,6 +50,13 @@ public class AuthController {
     auth.logout(request.refreshToken());
   }
 
+  /** Permanently deletes the authenticated parent's account and every child profile under it. */
+  @DeleteMapping("/me")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void deleteAccount(@AuthenticationPrincipal UUID parentId, @RequestBody @Valid DeleteAccountRequest request) {
+    auth.deleteAccount(parentId, request.password());
+  }
+
   private AuthResponse map(AuthService.AuthResult result) {
     return new AuthResponse(result.parentId(), result.email(), result.accessToken(), result.refreshToken(), "Bearer");
   }
@@ -57,6 +66,8 @@ public class AuthController {
   public record LoginRequest(@NotBlank @Email String email, @NotBlank String password) { }
 
   public record RefreshRequest(@NotBlank String refreshToken) { }
+
+  public record DeleteAccountRequest(@NotBlank String password) { }
 
   public record AuthResponse(UUID parentId, String email, String accessToken, String refreshToken, String tokenType) { }
 }

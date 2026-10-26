@@ -72,6 +72,15 @@ class ParentDashboard extends StatelessWidget {
                 dashboard.weakestSubject != dashboard.strongestSubject)
               Text('Could use more practice: ${dashboard.weakestSubject}'),
           ],
+          if (dashboard.recommendedNextLessonTitle != null) ...<Widget>[
+            const SizedBox(height: 12),
+            Card(
+                color: Theme.of(context).colorScheme.secondaryContainer,
+                child: ListTile(
+                    leading: const Icon(Icons.arrow_circle_right_outlined),
+                    title: const Text('Recommended next'),
+                    subtitle: Text(dashboard.recommendedNextLessonTitle!))),
+          ],
           if (badges.isNotEmpty) ...<Widget>[
             const SizedBox(height: 24),
             Text('Badges earned', style: Theme.of(context).textTheme.titleLarge),

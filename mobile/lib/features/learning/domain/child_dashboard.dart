@@ -8,6 +8,8 @@ class ChildDashboard {
     required this.coins,
     required this.currentStreak,
     required this.longestStreak,
+    this.recommendedNextLessonCode,
+    this.recommendedNextLessonTitle,
   });
 
   factory ChildDashboard.fromJson(Map<String, Object?> json) => ChildDashboard(
@@ -19,6 +21,8 @@ class ChildDashboard {
         coins: json['coins']! as int,
         currentStreak: json['currentStreak']! as int,
         longestStreak: json['longestStreak']! as int,
+        recommendedNextLessonCode: json['recommendedNextLessonCode'] as String?,
+        recommendedNextLessonTitle: json['recommendedNextLessonTitle'] as String?,
       );
 
   final int lessonsCompletedThisWeek;
@@ -29,4 +33,6 @@ class ChildDashboard {
   final int coins;
   final int currentStreak;
   final int longestStreak;
+  final String? recommendedNextLessonCode;
+  final String? recommendedNextLessonTitle;
 }

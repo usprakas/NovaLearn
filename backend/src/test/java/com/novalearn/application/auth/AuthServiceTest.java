@@ -125,4 +125,27 @@ class AuthServiceTest {
 
     verify(refreshTokens, never()).revoke(any());
   }
+
+  @Test
+  void deletesTheAccountOnceThePasswordIsReconfirmed() {
+    UUID parentId = UUID.randomUUID();
+    ParentAccount parent = new ParentAccount(parentId, "parent@example.com", "hash", Role.PARENT);
+    when(accounts.findById(parentId)).thenReturn(Optional.of(parent));
+    when(passwords.matches("correct password", "hash")).thenReturn(true);
+
+    service.deleteAccount(parentId, "correct password");
+
+    verify(accounts).deleteById(parentId);
+  }
+
+  @Test
+  void refusesToDeleteTheAccountWithTheWrongPassword() {
+    UUID parentId = UUID.randomUUID();
+    ParentAccount parent = new ParentAccount(parentId, "parent@example.com", "hash", Role.PARENT);
+    when(accounts.findById(parentId)).thenReturn(Optional.of(parent));
+    when(passwords.matches("wrong", "hash")).thenReturn(false);
+
+    assertThatThrownBy(() -> service.deleteAccount(parentId, "wrong")).isInstanceOf(AuthenticationException.class);
+    verify(accounts, never()).deleteById(any());
+  }
 }

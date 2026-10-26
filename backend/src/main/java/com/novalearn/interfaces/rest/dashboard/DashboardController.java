@@ -34,7 +34,9 @@ public class DashboardController {
       String weakestSubject,
       int coins,
       int currentStreak,
-      int longestStreak) {
+      int longestStreak,
+      String recommendedNextLessonCode,
+      String recommendedNextLessonTitle) {
     static DashboardResponse from(ChildDashboard dashboard) {
       return new DashboardResponse(
           dashboard.lessonsCompletedThisWeek(),
@@ -44,7 +46,9 @@ public class DashboardController {
           dashboard.weakestSubject(),
           dashboard.coins(),
           dashboard.currentStreak(),
-          dashboard.longestStreak());
+          dashboard.longestStreak(),
+          dashboard.recommendedNextLessonCode(),
+          dashboard.recommendedNextLessonTitle());
     }
   }
 }

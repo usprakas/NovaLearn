@@ -2,7 +2,8 @@ package com.novalearn.infrastructure.persistence;
 import com.novalearn.application.auth.*; import com.novalearn.application.child.ChildProfileRepository; import com.novalearn.application.progress.LessonProgressRepository; import com.novalearn.domain.auth.RefreshToken; import com.novalearn.domain.child.ChildProfile; import com.novalearn.domain.progress.LessonProgress; import org.springframework.stereotype.Repository; import java.util.*;
 @Repository class JpaParentAccountAdapter implements ParentAccountRepository {
  private final ParentAccountJpaRepository repo; JpaParentAccountAdapter(ParentAccountJpaRepository repo){this.repo=repo;} public boolean existsByEmail(String e){return repo.existsByEmail(e);} public ParentAccount save(ParentAccount a){ParentAccountEntity e=repo.save(new ParentAccountEntity(a.id(),a.email(),a.passwordHash(),a.role()));return new ParentAccount(e.getId(),e.getEmail(),e.getPasswordHash(),e.getRole());} public Optional<ParentAccount> findByEmail(String email){return repo.findByEmail(email).map(e->new ParentAccount(e.getId(),e.getEmail(),e.getPasswordHash(),e.getRole()));}
- public Optional<ParentAccount> findById(UUID id){return repo.findById(id).map(e->new ParentAccount(e.getId(),e.getEmail(),e.getPasswordHash(),e.getRole()));}}
+ public Optional<ParentAccount> findById(UUID id){return repo.findById(id).map(e->new ParentAccount(e.getId(),e.getEmail(),e.getPasswordHash(),e.getRole()));}
+ public void deleteById(UUID id){repo.deleteById(id);}}
 @Repository class JpaChildProfileAdapter implements ChildProfileRepository {
  private final ChildProfileJpaRepository repo; JpaChildProfileAdapter(ChildProfileJpaRepository repo){this.repo=repo;}
  public ChildProfile save(ChildProfile p){ChildProfileEntity e=repo.save(new ChildProfileEntity(p.id(),p.parentId(),p.displayName(),p.birthDate(),p.gradeLevel(),p.avatar(),p.learningPreferences()));return map(e);}

@@ -83,6 +83,21 @@ public class AuthService {
     refreshTokens.findByTokenHash(hash(rawRefreshToken)).ifPresent(token -> refreshTokens.revoke(token.id()));
   }
 
+  /**
+   * Permanently deletes the parent account after re-confirming the password. Every child profile,
+   * their lesson progress, rewards, and refresh tokens cascade-delete at the database level
+   * (see the {@code ON DELETE CASCADE} foreign keys from {@code child_profiles} and
+   * {@code refresh_tokens} to {@code parent_accounts}) — there is nothing else to clean up here.
+   */
+  @Transactional
+  public void deleteAccount(UUID parentId, String password) {
+    ParentAccount parent = accounts.findById(parentId).orElseThrow(AuthenticationException::new);
+    if (!passwords.matches(password, parent.passwordHash())) {
+      throw new AuthenticationException();
+    }
+    accounts.deleteById(parentId);
+  }
+
   private AuthResult issueSession(ParentAccount parent) {
     String accessToken = tokens.issue(parent.id(), parent.role());
     String rawRefreshToken = generateRawToken();

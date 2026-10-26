@@ -8,4 +8,6 @@ public record ChildDashboard(
     String weakestSubject,
     int coins,
     int currentStreak,
-    int longestStreak) { }
+    int longestStreak,
+    String recommendedNextLessonCode,
+    String recommendedNextLessonTitle) { }

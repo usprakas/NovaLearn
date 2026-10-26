@@ -8,4 +8,5 @@ public interface ParentAccountRepository {
     ParentAccount save(ParentAccount account);
     Optional<ParentAccount> findByEmail(String email);
     Optional<ParentAccount> findById(UUID id);
+    void deleteById(UUID id);
 }
