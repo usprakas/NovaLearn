@@ -1,7 +1,7 @@
 package com.novalearn.interfaces.rest.rewards;
 
 import com.novalearn.application.rewards.RewardsService;
-import com.novalearn.domain.rewards.ChildRewards;
+import com.novalearn.domain.rewards.ChildRewardsSummary;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -28,8 +28,8 @@ public class RewardsController {
   }
 
   public record RewardsResponse(int coins, int currentStreak, int longestStreak, LocalDate lastActivityDate) {
-    static RewardsResponse from(ChildRewards rewards) {
-      return new RewardsResponse(rewards.coins(), rewards.currentStreak(), rewards.longestStreak(), rewards.lastActivityDate());
+    static RewardsResponse from(ChildRewardsSummary summary) {
+      return new RewardsResponse(summary.coins(), summary.currentStreak(), summary.longestStreak(), summary.lastActivityDate());
     }
   }
 }

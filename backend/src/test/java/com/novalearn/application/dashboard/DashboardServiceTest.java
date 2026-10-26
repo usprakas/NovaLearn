@@ -5,15 +5,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.novalearn.application.catalog.LessonCatalog;
+import com.novalearn.application.catalog.LessonCatalogService;
 import com.novalearn.application.child.ChildProfileRepository;
 import com.novalearn.application.progress.LessonProgressRepository;
 import com.novalearn.application.rewards.RewardsService;
 import com.novalearn.domain.dashboard.ChildDashboard;
 import com.novalearn.domain.progress.LessonProgress;
-import com.novalearn.domain.rewards.ChildRewards;
+import com.novalearn.domain.rewards.ChildRewardsSummary;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -24,7 +25,7 @@ class DashboardServiceTest {
     ChildProfileRepository children = mock(ChildProfileRepository.class);
     LessonProgressRepository progress = mock(LessonProgressRepository.class);
     RewardsService rewards = mock(RewardsService.class);
-    LessonCatalog catalog = new LessonCatalog();
+    LessonCatalogService catalog = mock(LessonCatalogService.class);
     UUID parent = UUID.randomUUID();
     UUID child = UUID.randomUUID();
     when(children.belongsToParent(child, parent)).thenReturn(true);
@@ -32,7 +33,10 @@ class DashboardServiceTest {
         new LessonProgress(UUID.randomUUID(), child, "G1-ADD-01", 100, true, Instant.now()),
         new LessonProgress(UUID.randomUUID(), child, "G1-SUB-01", 60, true, Instant.now()),
         new LessonProgress(UUID.randomUUID(), child, "G1-ENG-01", 40, true, Instant.now())));
-    when(rewards.get(parent, child)).thenReturn(new ChildRewards(child, 25, 2, 2, null));
+    when(catalog.subjectOf("G1-ADD-01")).thenReturn(Optional.of("MATH"));
+    when(catalog.subjectOf("G1-SUB-01")).thenReturn(Optional.of("MATH"));
+    when(catalog.subjectOf("G1-ENG-01")).thenReturn(Optional.of("ENGLISH"));
+    when(rewards.get(parent, child)).thenReturn(new ChildRewardsSummary(25, 2, 2, null));
     DashboardService service = new DashboardService(children, progress, rewards, catalog);
 
     ChildDashboard dashboard = service.get(parent, child);
@@ -50,12 +54,12 @@ class DashboardServiceTest {
     ChildProfileRepository children = mock(ChildProfileRepository.class);
     LessonProgressRepository progress = mock(LessonProgressRepository.class);
     RewardsService rewards = mock(RewardsService.class);
-    LessonCatalog catalog = new LessonCatalog();
+    LessonCatalogService catalog = mock(LessonCatalogService.class);
     UUID parent = UUID.randomUUID();
     UUID child = UUID.randomUUID();
     when(children.belongsToParent(child, parent)).thenReturn(true);
     when(progress.findByChildId(child)).thenReturn(List.of());
-    when(rewards.get(parent, child)).thenReturn(ChildRewards.initial(child));
+    when(rewards.get(parent, child)).thenReturn(new ChildRewardsSummary(0, 0, 0, null));
     DashboardService service = new DashboardService(children, progress, rewards, catalog);
 
     ChildDashboard dashboard = service.get(parent, child);
@@ -70,7 +74,7 @@ class DashboardServiceTest {
     ChildProfileRepository children = mock(ChildProfileRepository.class);
     LessonProgressRepository progress = mock(LessonProgressRepository.class);
     RewardsService rewards = mock(RewardsService.class);
-    LessonCatalog catalog = new LessonCatalog();
+    LessonCatalogService catalog = mock(LessonCatalogService.class);
     when(children.belongsToParent(any(), any())).thenReturn(false);
     DashboardService service = new DashboardService(children, progress, rewards, catalog);
 

@@ -1,9 +1,10 @@
 package com.novalearn.interfaces.rest.common;
-import com.novalearn.application.auth.*; import com.novalearn.application.catalog.LessonNotFoundException; import com.novalearn.application.common.ChildNotFoundException; import com.novalearn.application.homework.InvalidHomeworkQuestionException; import com.novalearn.application.tutor.InvalidTutorQuestionException; import org.springframework.http.*; import org.springframework.web.bind.annotation.*; import java.time.Instant;
+import com.novalearn.application.auth.*; import com.novalearn.application.catalog.LessonNotFoundException; import com.novalearn.application.common.ChildNotFoundException; import com.novalearn.application.homework.InvalidHomeworkQuestionException; import com.novalearn.application.progress.ExerciseNotFoundException; import com.novalearn.application.tutor.InvalidTutorQuestionException; import org.springframework.http.*; import org.springframework.web.bind.annotation.*; import java.time.Instant;
 @RestControllerAdvice public class ApiExceptionHandler {
  @ExceptionHandler(AuthenticationException.class) ResponseEntity<ApiError> unauthorized(RuntimeException ex){return error(HttpStatus.UNAUTHORIZED,ex.getMessage());}
  @ExceptionHandler(ChildNotFoundException.class) ResponseEntity<ApiError> notFound(RuntimeException ex){return error(HttpStatus.NOT_FOUND,ex.getMessage());}
  @ExceptionHandler(LessonNotFoundException.class) ResponseEntity<ApiError> lessonNotFound(RuntimeException ex){return error(HttpStatus.NOT_FOUND,ex.getMessage());}
+ @ExceptionHandler(ExerciseNotFoundException.class) ResponseEntity<ApiError> exerciseNotFound(RuntimeException ex){return error(HttpStatus.NOT_FOUND,ex.getMessage());}
  @ExceptionHandler(InvalidTutorQuestionException.class) ResponseEntity<ApiError> invalidQuestion(RuntimeException ex){return error(HttpStatus.BAD_REQUEST,ex.getMessage());}
  @ExceptionHandler(InvalidHomeworkQuestionException.class) ResponseEntity<ApiError> invalidHomeworkQuestion(RuntimeException ex){return error(HttpStatus.BAD_REQUEST,ex.getMessage());}
  @ExceptionHandler(EmailAlreadyRegisteredException.class) ResponseEntity<ApiError> conflict(RuntimeException ex){return error(HttpStatus.CONFLICT,ex.getMessage());}

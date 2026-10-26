@@ -1,13 +1,13 @@
 package com.novalearn.application.dashboard;
 
-import com.novalearn.application.catalog.LessonCatalog;
+import com.novalearn.application.catalog.LessonCatalogService;
 import com.novalearn.application.child.ChildProfileRepository;
 import com.novalearn.application.common.ChildNotFoundException;
 import com.novalearn.application.progress.LessonProgressRepository;
 import com.novalearn.application.rewards.RewardsService;
 import com.novalearn.domain.dashboard.ChildDashboard;
 import com.novalearn.domain.progress.LessonProgress;
-import com.novalearn.domain.rewards.ChildRewards;
+import com.novalearn.domain.rewards.ChildRewardsSummary;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -25,10 +25,10 @@ public class DashboardService {
   private final ChildProfileRepository children;
   private final LessonProgressRepository progress;
   private final RewardsService rewards;
-  private final LessonCatalog catalog;
+  private final LessonCatalogService catalog;
 
   public DashboardService(
-      ChildProfileRepository children, LessonProgressRepository progress, RewardsService rewards, LessonCatalog catalog) {
+      ChildProfileRepository children, LessonProgressRepository progress, RewardsService rewards, LessonCatalogService catalog) {
     this.children = children;
     this.progress = progress;
     this.rewards = rewards;
@@ -66,7 +66,7 @@ public class DashboardService {
       }
     }
 
-    ChildRewards childRewards = rewards.get(parentId, childId);
+    ChildRewardsSummary childRewards = rewards.get(parentId, childId);
     return new ChildDashboard((int) completedThisWeek, attempts.size(), averageScore, strongestSubject, weakestSubject,
         childRewards.coins(), childRewards.currentStreak(), childRewards.longestStreak());
   }

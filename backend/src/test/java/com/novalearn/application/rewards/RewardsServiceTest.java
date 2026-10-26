@@ -3,10 +3,13 @@ package com.novalearn.application.rewards;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.novalearn.application.child.ChildProfileRepository;
-import com.novalearn.domain.rewards.ChildRewards;
+import com.novalearn.domain.rewards.ChildRewardsSummary;
+import com.novalearn.domain.rewards.ChildStreak;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -14,94 +17,98 @@ import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 
 class RewardsServiceTest {
 
+  private final RewardTransactionRepository transactions = mock(RewardTransactionRepository.class);
+  private final ChildStreakRepository streaks = mock(ChildStreakRepository.class);
+  private final ChildProfileRepository children = mock(ChildProfileRepository.class);
+  private final BadgeService badges = mock(BadgeService.class);
   private final Clock fixedClock = Clock.fixed(Instant.parse("2026-01-10T00:00:00Z"), ZoneOffset.UTC);
+  private final RewardsService service = new RewardsService(transactions, streaks, children, badges, fixedClock);
 
   @Test
-  void awardsCoinsForAFirstCompletionAndBonusForAPerfectScore() {
-    ChildRewardsRepository rewards = mock(ChildRewardsRepository.class);
-    ChildProfileRepository children = mock(ChildProfileRepository.class);
+  void awardsCoinsAndAdvancesTheStreakOnANewEvent() {
     UUID childId = UUID.randomUUID();
-    when(rewards.findByChildId(childId)).thenReturn(Optional.empty());
-    when(rewards.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-    RewardsService service = new RewardsService(rewards, children, fixedClock);
+    when(transactions.existsByReferenceTypeAndReferenceId("LESSON_COMPLETION", "ref-1")).thenReturn(false);
+    when(streaks.findByChildId(childId)).thenReturn(Optional.empty());
+    when(streaks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-    ChildRewards result = service.recordLessonCompletion(childId, 100);
+    service.award(childId, 15, "Completed a lesson", "LESSON_COMPLETION", "ref-1");
 
-    assertThat(result.coins()).isEqualTo(15);
-    assertThat(result.currentStreak()).isEqualTo(1);
-    assertThat(result.longestStreak()).isEqualTo(1);
+    verify(transactions).save(any());
+    verify(streaks).save(org.mockito.ArgumentMatchers.argThat(s -> s.currentStreak() == 1));
+    verify(badges).evaluateAndAward(childId);
   }
 
   @Test
-  void doesNotAwardTheBonusForAnImperfectScore() {
-    ChildRewardsRepository rewards = mock(ChildRewardsRepository.class);
-    ChildProfileRepository children = mock(ChildProfileRepository.class);
+  void doesNotAwardTwiceForTheSameReferenceAlreadyRecorded() {
     UUID childId = UUID.randomUUID();
-    when(rewards.findByChildId(childId)).thenReturn(Optional.empty());
-    when(rewards.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-    RewardsService service = new RewardsService(rewards, children, fixedClock);
+    when(transactions.existsByReferenceTypeAndReferenceId("LESSON_COMPLETION", "ref-1")).thenReturn(true);
 
-    ChildRewards result = service.recordLessonCompletion(childId, 80);
+    service.award(childId, 15, "Completed a lesson", "LESSON_COMPLETION", "ref-1");
 
-    assertThat(result.coins()).isEqualTo(10);
+    verify(transactions, never()).save(any());
+    verify(streaks, never()).save(any());
+    verify(badges, never()).evaluateAndAward(any());
+  }
+
+  @Test
+  void treatsAConcurrentDuplicateInsertAsAlreadyAwardedRatherThanFailing() {
+    UUID childId = UUID.randomUUID();
+    when(transactions.existsByReferenceTypeAndReferenceId(any(), any())).thenReturn(false);
+    when(transactions.save(any())).thenThrow(new DataIntegrityViolationException("unique constraint violated"));
+
+    service.award(childId, 15, "Completed a lesson", "LESSON_COMPLETION", "ref-1");
+
+    verify(streaks, never()).save(any());
   }
 
   @Test
   void extendsTheStreakOnConsecutiveDaysAndTracksTheLongestStreak() {
-    ChildRewardsRepository rewards = mock(ChildRewardsRepository.class);
-    ChildProfileRepository children = mock(ChildProfileRepository.class);
     UUID childId = UUID.randomUUID();
     LocalDate yesterday = LocalDate.now(fixedClock).minusDays(1);
-    when(rewards.findByChildId(childId)).thenReturn(Optional.of(new ChildRewards(childId, 10, 3, 3, yesterday)));
-    when(rewards.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-    RewardsService service = new RewardsService(rewards, children, fixedClock);
+    when(transactions.existsByReferenceTypeAndReferenceId(any(), any())).thenReturn(false);
+    when(streaks.findByChildId(childId)).thenReturn(Optional.of(new ChildStreak(childId, 3, 3, yesterday)));
+    when(streaks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-    ChildRewards result = service.recordLessonCompletion(childId, 50);
+    service.award(childId, 10, "reason", "TYPE", "ref-2");
 
-    assertThat(result.currentStreak()).isEqualTo(4);
-    assertThat(result.longestStreak()).isEqualTo(4);
+    verify(streaks).save(org.mockito.ArgumentMatchers.argThat(s -> s.currentStreak() == 4 && s.longestStreak() == 4));
   }
 
   @Test
   void resetsTheStreakAfterAMissedDayButKeepsTheLongestStreakRecord() {
-    ChildRewardsRepository rewards = mock(ChildRewardsRepository.class);
-    ChildProfileRepository children = mock(ChildProfileRepository.class);
     UUID childId = UUID.randomUUID();
     LocalDate longAgo = LocalDate.now(fixedClock).minusDays(5);
-    when(rewards.findByChildId(childId)).thenReturn(Optional.of(new ChildRewards(childId, 10, 7, 7, longAgo)));
-    when(rewards.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-    RewardsService service = new RewardsService(rewards, children, fixedClock);
+    when(transactions.existsByReferenceTypeAndReferenceId(any(), any())).thenReturn(false);
+    when(streaks.findByChildId(childId)).thenReturn(Optional.of(new ChildStreak(childId, 7, 7, longAgo)));
+    when(streaks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-    ChildRewards result = service.recordLessonCompletion(childId, 50);
+    service.award(childId, 10, "reason", "TYPE", "ref-3");
 
-    assertThat(result.currentStreak()).isEqualTo(1);
-    assertThat(result.longestStreak()).isEqualTo(7);
+    verify(streaks).save(org.mockito.ArgumentMatchers.argThat(s -> s.currentStreak() == 1 && s.longestStreak() == 7));
   }
 
   @Test
-  void doesNotDoubleCountTheStreakForASecondCompletionOnTheSameDay() {
-    ChildRewardsRepository rewards = mock(ChildRewardsRepository.class);
-    ChildProfileRepository children = mock(ChildProfileRepository.class);
+  void getSumsCoinsFromTheLedgerAndReadsStreakState() {
+    UUID parentId = UUID.randomUUID();
     UUID childId = UUID.randomUUID();
-    LocalDate today = LocalDate.now(fixedClock);
-    when(rewards.findByChildId(childId)).thenReturn(Optional.of(new ChildRewards(childId, 10, 2, 2, today)));
-    when(rewards.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-    RewardsService service = new RewardsService(rewards, children, fixedClock);
+    when(children.belongsToParent(childId, parentId)).thenReturn(true);
+    when(transactions.sumCoinsForChild(childId)).thenReturn(35);
+    when(streaks.findByChildId(childId)).thenReturn(Optional.of(new ChildStreak(childId, 2, 4, LocalDate.now(fixedClock))));
 
-    ChildRewards result = service.recordLessonCompletion(childId, 50);
+    ChildRewardsSummary summary = service.get(parentId, childId);
 
-    assertThat(result.currentStreak()).isEqualTo(2);
+    assertThat(summary.coins()).isEqualTo(35);
+    assertThat(summary.currentStreak()).isEqualTo(2);
+    assertThat(summary.longestStreak()).isEqualTo(4);
   }
 
   @Test
   void rejectsReadingRewardsForAChildOutsideTheParentAccount() {
-    ChildRewardsRepository rewards = mock(ChildRewardsRepository.class);
-    ChildProfileRepository children = mock(ChildProfileRepository.class);
     when(children.belongsToParent(any(), any())).thenReturn(false);
-    RewardsService service = new RewardsService(rewards, children, fixedClock);
 
     org.junit.jupiter.api.Assertions.assertThrows(
         com.novalearn.application.common.ChildNotFoundException.class,
