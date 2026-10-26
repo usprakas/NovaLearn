@@ -1,11 +1,14 @@
 # NovaLearn Mobile
 
-Flutter client: parent authentication, secure JWT session storage, child profiles, a dynamic
-lesson list across Math and English, progress sync, an AI tutor screen ("try another way" rotates
-through step-by-step/story/real-life-example explanations), a homework helper screen (type a
-question — there's no photo/OCR scanning yet, see the backend's RISKS_AND_TRADEOFFS.md), and a
-parent dashboard showing weekly completions, average score, coins, streak, and a strongest/weakest
-subject signal.
+Flutter client, state managed with Riverpod at the session/auth layer (see
+`../docs/ADR/0003-state-management.md`): parent authentication with rotating refresh tokens,
+secure session storage, child profiles, a dynamic Grade 1 Math lesson list, a per-exercise lesson
+player that submits each answer to the server for grading and shows immediate feedback (the app
+never has the correct answer itself), an AI tutor screen ("try another way" rotates through
+step-by-step/story/real-life-example explanations), a homework helper screen (type a question —
+there's no photo/OCR scanning yet, see the backend's RISKS_AND_TRADEOFFS.md), and a parent
+dashboard showing weekly completions, average score, coins, streak, earned badges, and a
+strongest/weakest subject signal.
 
 ## Run
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../children/domain/child.dart';
+import '../../rewards/domain/badges_repository.dart';
+import '../../rewards/domain/child_badge.dart';
 import '../domain/child_dashboard.dart';
 import '../domain/dashboard_repository.dart';
 import '../domain/progress.dart';
@@ -12,18 +14,20 @@ class ParentDashboard extends StatelessWidget {
     required this.child,
     required this.dashboardRepository,
     required this.progressRepository,
+    required this.badgesRepository,
   });
   final String token;
   final Child child;
   final DashboardRepository dashboardRepository;
   final ProgressRepository progressRepository;
+  final BadgesRepository badgesRepository;
 
   @override
   Widget build(BuildContext context) => FutureBuilder<
-      (ChildDashboard, List<LessonProgress>)>(
+      (ChildDashboard, List<LessonProgress>, List<ChildBadge>)>(
       future: _load(),
       builder: (BuildContext context,
-          AsyncSnapshot<(ChildDashboard, List<LessonProgress>)> snapshot) {
+          AsyncSnapshot<(ChildDashboard, List<LessonProgress>, List<ChildBadge>)> snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -33,6 +37,7 @@ class ParentDashboard extends StatelessWidget {
         }
         final ChildDashboard dashboard = snapshot.data!.$1;
         final List<LessonProgress> progress = snapshot.data!.$2;
+        final List<ChildBadge> badges = snapshot.data!.$3;
         return ListView(padding: const EdgeInsets.all(24), children: <Widget>[
           Text("${child.displayName}'s progress",
               style: Theme.of(context).textTheme.headlineSmall),
@@ -67,6 +72,18 @@ class ParentDashboard extends StatelessWidget {
                 dashboard.weakestSubject != dashboard.strongestSubject)
               Text('Could use more practice: ${dashboard.weakestSubject}'),
           ],
+          if (badges.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 24),
+            Text('Badges earned', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Wrap(
+                spacing: 8,
+                children: badges
+                    .map((ChildBadge badge) => Chip(
+                        avatar: const Icon(Icons.emoji_events, size: 18),
+                        label: Text(badge.badgeCode.replaceAll('_', ' '))))
+                    .toList()),
+          ],
           const SizedBox(height: 24),
           Text('Recent lessons', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
@@ -87,12 +104,11 @@ class ParentDashboard extends StatelessWidget {
         ]);
       });
 
-  Future<(ChildDashboard, List<LessonProgress>)> _load() async {
-    final ChildDashboard dashboard =
-        await dashboardRepository.dashboard(token, child.id);
-    final List<LessonProgress> progress =
-        await progressRepository.progress(token, child.id);
-    return (dashboard, progress);
+  Future<(ChildDashboard, List<LessonProgress>, List<ChildBadge>)> _load() async {
+    final ChildDashboard dashboard = await dashboardRepository.dashboard(token, child.id);
+    final List<LessonProgress> progress = await progressRepository.progress(token, child.id);
+    final List<ChildBadge> badges = await badgesRepository.badges(token, child.id);
+    return (dashboard, progress, badges);
   }
 }
 

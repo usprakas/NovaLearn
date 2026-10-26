@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/novalearn_api.dart';
-import '../../../core/security/session_store.dart';
-import '../domain/auth_repository.dart';
+import '../application/session_controller.dart';
 
-class AuthScreen extends StatefulWidget {
-  const AuthScreen(
-      {super.key, required this.api, required this.onAuthenticated});
-  final AuthRepository api;
-  final Future<void> Function(Session session) onAuthenticated;
+class AuthScreen extends ConsumerStatefulWidget {
+  const AuthScreen({super.key});
+
   @override
-  State<AuthScreen> createState() => _AuthScreenState();
+  ConsumerState<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends ConsumerState<AuthScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _email = TextEditingController();
   final TextEditingController _password = TextEditingController();
@@ -30,11 +28,12 @@ class _AuthScreenState extends State<AuthScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
     try {
-      final AuthSession result = _registering
-          ? await widget.api.register(_email.text, _password.text)
-          : await widget.api.login(_email.text, _password.text);
-      await widget.onAuthenticated(
-          Session(accessToken: result.accessToken, email: result.email));
+      final SessionController controller = ref.read(sessionControllerProvider.notifier);
+      if (_registering) {
+        await controller.register(_email.text, _password.text);
+      } else {
+        await controller.login(_email.text, _password.text);
+      }
     } on ApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)

@@ -8,10 +8,14 @@ import '../../features/homework/domain/homework_guidance.dart';
 import '../../features/homework/domain/homework_repository.dart';
 import '../../features/learning/domain/child_dashboard.dart';
 import '../../features/learning/domain/dashboard_repository.dart';
+import '../../features/learning/domain/exercise_evaluation.dart';
+import '../../features/learning/domain/exercise_repository.dart';
 import '../../features/learning/domain/lesson.dart';
 import '../../features/learning/domain/lessons_repository.dart';
 import '../../features/learning/domain/progress.dart';
 import '../../features/learning/domain/progress_repository.dart';
+import '../../features/rewards/domain/badges_repository.dart';
+import '../../features/rewards/domain/child_badge.dart';
 import '../../features/rewards/domain/rewards.dart';
 import '../../features/rewards/domain/rewards_repository.dart';
 import '../../features/tutor/domain/tutor_answer.dart';
@@ -23,7 +27,9 @@ class NovaLearnApi
         ChildrenRepository,
         ProgressRepository,
         LessonsRepository,
+        ExerciseRepository,
         RewardsRepository,
+        BadgesRepository,
         DashboardRepository,
         TutorRepository,
         HomeworkRepository {
@@ -41,6 +47,25 @@ class NovaLearnApi
   @override
   Future<AuthSession> register(String email, String password) =>
       _authenticate('/api/v1/auth/register', email, password);
+
+  @override
+  Future<AuthSession> refresh(String refreshToken) async {
+    final http.Response response = await _client.post(
+      _uri('/api/v1/auth/refresh'),
+      headers: _headers(),
+      body: jsonEncode(<String, String>{'refreshToken': refreshToken}),
+    );
+    return _authSessionFrom(_decodeObject(response));
+  }
+
+  @override
+  Future<void> logout(String refreshToken) async {
+    await _client.post(
+      _uri('/api/v1/auth/logout'),
+      headers: _headers(),
+      body: jsonEncode(<String, String>{'refreshToken': refreshToken}),
+    );
+  }
 
   @override
   Future<List<Child>> children(String token) async {
@@ -75,20 +100,6 @@ class NovaLearnApi
   }
 
   @override
-  Future<LessonProgress> recordProgress(
-    String token,
-    String childId,
-    LessonProgressDraft draft,
-  ) async {
-    final http.Response response = await _client.put(
-      _uri('/api/v1/children/$childId/progress/${draft.lessonCode}'),
-      headers: _headers(token),
-      body: jsonEncode(draft.toJson()),
-    );
-    return LessonProgress.fromJson(_decodeObject(response));
-  }
-
-  @override
   Future<List<LessonSummary>> lessons(String token) async {
     final http.Response response = await _client.get(
       _uri('/api/v1/lessons'),
@@ -110,12 +121,36 @@ class NovaLearnApi
   }
 
   @override
+  Future<ExerciseEvaluation> submitAnswer(
+    String token,
+    String childId,
+    String exerciseId,
+    int submittedAnswerIndex,
+  ) async {
+    final http.Response response = await _client.post(
+      _uri('/api/v1/children/$childId/exercises/$exerciseId/attempts'),
+      headers: _headers(token),
+      body: jsonEncode(<String, Object?>{'submittedAnswerIndex': submittedAnswerIndex}),
+    );
+    return ExerciseEvaluation.fromJson(_decodeObject(response));
+  }
+
+  @override
   Future<ChildRewards> rewards(String token, String childId) async {
     final http.Response response = await _client.get(
       _uri('/api/v1/children/$childId/rewards'),
       headers: _headers(token),
     );
     return ChildRewards.fromJson(_decodeObject(response));
+  }
+
+  @override
+  Future<List<ChildBadge>> badges(String token, String childId) async {
+    final http.Response response = await _client.get(
+      _uri('/api/v1/children/$childId/badges'),
+      headers: _headers(token),
+    );
+    return _decodeList(response).cast<Map<String, Object?>>().map(ChildBadge.fromJson).toList();
   }
 
   @override
@@ -171,12 +206,14 @@ class NovaLearnApi
       headers: _headers(),
       body: jsonEncode(<String, String>{'email': email, 'password': password}),
     );
-    final Map<String, Object?> data = _decodeObject(response);
-    return AuthSession(
-      accessToken: data['accessToken']! as String,
-      email: data['email']! as String,
-    );
+    return _authSessionFrom(_decodeObject(response));
   }
+
+  AuthSession _authSessionFrom(Map<String, Object?> data) => AuthSession(
+        accessToken: data['accessToken']! as String,
+        refreshToken: data['refreshToken']! as String,
+        email: data['email']! as String,
+      );
 
   Uri _uri(String path) => Uri.parse('$_baseUrl$path');
   Map<String, String> _headers([String? token]) => <String, String>{

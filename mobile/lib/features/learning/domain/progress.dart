@@ -17,18 +17,3 @@ class LessonProgress {
   final int score;
   final bool completed;
 }
-
-class LessonProgressDraft {
-  const LessonProgressDraft({
-    required this.lessonCode,
-    required this.score,
-    required this.completed,
-  });
-  final String lessonCode;
-  final int score;
-  final bool completed;
-  Map<String, Object> toJson() => <String, Object>{
-        'score': score,
-        'completed': completed,
-      };
-}

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../children/domain/child.dart';
+import '../domain/exercise_repository.dart';
 import '../domain/lesson.dart';
 import '../domain/lessons_repository.dart';
-import '../domain/progress_repository.dart';
 import 'lesson_screen.dart';
 
 class LessonListTab extends StatefulWidget {
@@ -11,13 +11,13 @@ class LessonListTab extends StatefulWidget {
     required this.token,
     required this.child,
     required this.lessonsRepository,
-    required this.progressRepository,
+    required this.exerciseRepository,
     required this.onLessonCompleted,
   });
   final String token;
   final Child child;
   final LessonsRepository lessonsRepository;
-  final ProgressRepository progressRepository;
+  final ExerciseRepository exerciseRepository;
   final VoidCallback onLessonCompleted;
 
   @override
@@ -42,7 +42,7 @@ class _LessonListTabState extends State<LessonListTab> {
             token: widget.token,
             child: widget.child,
             lesson: lesson,
-            progressRepository: widget.progressRepository)));
+            exerciseRepository: widget.exerciseRepository)));
     widget.onLessonCompleted();
   }
 
