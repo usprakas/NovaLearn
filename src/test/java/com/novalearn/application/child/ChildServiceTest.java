@@ -1,0 +1,6 @@
+package com.novalearn.application.child;
+import com.novalearn.domain.child.ChildProfile; import org.junit.jupiter.api.Test; import java.time.LocalDate; import java.util.*; import static org.assertj.core.api.Assertions.*; import static org.mockito.ArgumentMatchers.any; import static org.mockito.Mockito.*;
+class ChildServiceTest {
+ @Test void creates_trimmed_child_profile(){ChildProfileRepository repository=mock(ChildProfileRepository.class);when(repository.save(any())).thenAnswer(i->i.getArgument(0));ChildService service=new ChildService(repository);UUID parent=UUID.randomUUID();ChildProfile child=service.create(parent,"  Maya  ",LocalDate.of(2020,1,1));assertThat(child.parentId()).isEqualTo(parent);assertThat(child.displayName()).isEqualTo("Maya");}
+ @Test void lists_only_profiles_owned_by_the_parent(){ChildProfileRepository repository=mock(ChildProfileRepository.class);ChildService service=new ChildService(repository);UUID parent=UUID.randomUUID();List<ChildProfile> expected=List.of(new ChildProfile(UUID.randomUUID(),parent,"Maya",LocalDate.of(2020,1,1)));when(repository.findByParentId(parent)).thenReturn(expected);assertThat(service.list(parent)).containsExactlyElementsOf(expected);}
+}

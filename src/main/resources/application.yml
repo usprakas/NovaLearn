@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: novalearn-api
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/novalearn}
+    username: ${DATABASE_USERNAME:novalearn}
+    password: ${DATABASE_PASSWORD:novalearn}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  jackson:
+    default-property-inclusion: non_null
+server:
+  shutdown: graceful
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+novalearn:
+  security:
+    jwt-secret: ${JWT_SECRET}
+    access-token-ttl-seconds: ${JWT_ACCESS_TOKEN_TTL_SECONDS:3600}

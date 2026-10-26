@@ -1,0 +1,7 @@
+package com.novalearn.interfaces.rest.progress;
+import com.novalearn.application.progress.ProgressService; import com.novalearn.domain.progress.LessonProgress; import io.swagger.v3.oas.annotations.tags.Tag; import jakarta.validation.constraints.*; import org.springframework.security.core.annotation.AuthenticationPrincipal; import org.springframework.web.bind.annotation.*; import java.time.Instant; import java.util.*;
+@RestController @RequestMapping("/api/v1/children/{childId}/progress") @Tag(name="Learning progress") public class ProgressController { private final ProgressService progress; public ProgressController(ProgressService progress){this.progress=progress;}
+ @PutMapping("/{lessonCode}") public ProgressResponse record(@AuthenticationPrincipal UUID parentId,@PathVariable UUID childId,@PathVariable @Pattern(regexp="[A-Z0-9_-]{3,100}") String lessonCode,@RequestBody @jakarta.validation.Valid RecordProgressRequest request){return map(progress.record(parentId,childId,lessonCode,request.score(),request.completed()));}
+ @GetMapping public List<ProgressResponse> list(@AuthenticationPrincipal UUID parentId,@PathVariable UUID childId){return progress.list(parentId,childId).stream().map(ProgressController::map).toList();}
+ private static ProgressResponse map(LessonProgress p){return new ProgressResponse(p.id(),p.lessonCode(),p.score(),p.completed(),p.updatedAt());} public record RecordProgressRequest(@Min(0) @Max(100) int score,boolean completed){} public record ProgressResponse(UUID id,String lessonCode,int score,boolean completed,Instant updatedAt){}
+}

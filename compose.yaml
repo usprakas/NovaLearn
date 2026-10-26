@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: novalearn
+      POSTGRES_USER: novalearn
+      POSTGRES_PASSWORD: novalearn
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U novalearn -d novalearn"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  api:
+    build: .
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/novalearn
+      DATABASE_USERNAME: novalearn
+      DATABASE_PASSWORD: novalearn
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your environment or .env file}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports: ["8080:8080"]
+    depends_on:
+      postgres:
+        condition: service_healthy
