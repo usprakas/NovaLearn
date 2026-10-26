@@ -34,37 +34,61 @@ requests/minute/IP via Redis; fails open if Redis is unreachable).
 | GET | `/children` | — | 200, list of the above, ordered by display name |
 
 `gradeLevel`/`avatar`/`learningPreferences` are optional — omitting them defaults to `GRADE_1` /
-`FOX` / `[]` so the current mobile client (which only sends `displayName`/`birthDate`) keeps
-working unmodified. Valid enum values: `gradeLevel` ∈ `{PRE_K, KINDERGARTEN, GRADE_1, GRADE_2,
-GRADE_3}`; `avatar` ∈ `{FOX, OWL, ROBOT, ASTRONAUT, DRAGON}`; `learningPreferences` ⊆ `{VISUAL,
-AUDITORY, STORY, GAMES, REPETITION}`.
+`FOX` / `[]`. Valid enum values: `gradeLevel` ∈ `{PRE_K, KINDERGARTEN, GRADE_1, GRADE_2, GRADE_3}`;
+`avatar` ∈ `{FOX, OWL, ROBOT, ASTRONAUT, DRAGON}`; `learningPreferences` ⊆ `{VISUAL, AUDITORY,
+STORY, GAMES, REPETITION}`.
 
 ## Lesson catalog
 
 | Method | Path | Response |
 | --- | --- | --- |
 | GET | `/lessons` | 200, `[{code, subject, order, title, description}]` |
-| GET | `/lessons/{code}` | 200, `{code, subject, title, description, questions: [{prompt, choices, answerIndex}]}`; 404 if unknown |
+| GET | `/lessons/{code}` | 200, `{code, subject, title, description, exercises: [{id, order, prompt, choices}]}`; 404 if unknown |
 
-Scoring is computed client-side from the fetched questions and submitted as a final score via the
-progress endpoint below — see `docs/RISKS_AND_TRADEOFFS.md` for why that is a known limitation,
-not an oversight.
+**`exercises` carries no answer-index field** — grading happens server-side (see "Exercise
+evaluation" below). This is a Phase 2 change: the catalog used to embed `questions` with an
+`answerIndex` the client graded itself; that shape no longer exists.
 
-## Progress
+## Exercise evaluation
 
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
-| PUT | `/children/{childId}/progress/{lessonCode}` | `{score (0-100), completed}` | 200, `{id, lessonCode, score, completed, updatedAt}` — keeps the higher of the previous/new score and the OR of previous/new `completed` |
-| GET | `/children/{childId}/progress` | — | 200, list of the above, most recently updated first |
+| POST | `/children/{childId}/exercises/{exerciseId}/attempts` | `{submittedAnswerIndex}` | 201, `{correct, explanation, hint}` — `hint` is `null` when `correct` is `true` |
 
-Completing a lesson for the **first time** (transition from not-completed to completed) triggers a
-reward via `RewardsService`; re-completing an already-completed lesson does not re-award.
+Records the attempt, updates the exercise's skill's progress counters, and recalculates the
+parent lesson's completion/score from every exercise attempted so far. 404 if the exercise id
+doesn't exist.
+
+## Progress
+
+| Method | Path | Response |
+| --- | --- | --- |
+| GET | `/children/{childId}/progress` | 200, `[{id, lessonCode, score, completed, updatedAt}]`, most recently updated first |
+
+**There is no longer a `PUT` here.** A prior version let the client submit
+`{score, completed}` directly for a lesson — removed in Phase 2 because nothing verified it
+server-side (see RISKS_AND_TRADEOFFS.md). Progress is now a read-only view derived from exercise
+attempts; completing a lesson for the **first time** (every exercise attempted at least once)
+triggers a reward via the ledger below.
 
 ## Rewards
 
 | Method | Path | Response |
 | --- | --- | --- |
 | GET | `/children/{childId}/rewards` | 200, `{coins, currentStreak, longestStreak, lastActivityDate}` |
+
+`coins` is the sum of an append-only ledger (`reward_transactions`), not a stored counter — see
+DATABASE_DESIGN.md.
+
+## Badges
+
+| Method | Path | Response |
+| --- | --- | --- |
+| GET | `/children/{childId}/badges` | 200, `[{badgeCode, awardedAt}]` |
+
+Two badges exist today: `FIRST_STEPS` (first lesson ever completed) and `FIVE_DAY_STREAK` (a
+5-day activity streak). Evaluated automatically after every reward-worthy event — there is no
+separate "check for new badges" call.
 
 ## Parent dashboard
 
@@ -74,7 +98,7 @@ reward via `RewardsService`; re-completing an already-completed lesson does not 
 
 `strongestSubject`/`weakestSubject` are derived from average score per subject across whatever
 lessons the child has attempted; both are `null` if the child has no progress yet. This is
-**measured activity**, not a validated mastery model — see the "Mastery algorithm" section of
+**measured activity**, not a validated mastery model — see "Mastery algorithm" in
 `docs/DATABASE_DESIGN.md`.
 
 ## AI tutor
@@ -84,12 +108,11 @@ lessons the child has attempted; both are `null` if the child has no progress ye
 | POST | `/children/{childId}/tutor/questions` | `{question, subject?, attempt (int, >= 0)}` | 201, `{strategy, explanation}` |
 
 `strategy` ∈ `{STEP_BY_STEP, STORY, REAL_LIFE_EXAMPLE}`, selected by `attempt % 3` — the mobile
-client increments `attempt` each time the child taps "try another way," so repeated questions
-rotate through explanation styles instead of repeating the same one. Falls back to a deterministic
-offline template if no `ANTHROPIC_API_KEY` is configured, or if the real call fails. The master
-spec's full strategy set (`VISUAL_ANALOGY`, `GUIDED_QUESTION` in addition to the three implemented)
-and structured next-activity suggestions are not yet implemented — see
-`docs/DEVELOPMENT_PLAN.md`.
+client increments `attempt` each time the child taps "try another way." Falls back to a
+deterministic offline template if no `ANTHROPIC_API_KEY` is configured, or if the real call fails.
+Note: the master spec's example route shape (`/tutor/sessions/{sessionId}/messages`, implying a
+stateful conversation) is not what's implemented — this remains a stateless per-question endpoint,
+unchanged from the pre-master-spec session. See DEVELOPMENT_PLAN.md Phase 4.
 
 ## Homework helper
 
@@ -97,8 +120,8 @@ and structured next-activity suggestions are not yet implemented — see
 | --- | --- | --- | --- |
 | POST | `/children/{childId}/homework/questions` | `{questionText}` | 201, `{steps: [string], finalHint}` |
 
-Text-in only — **there is no OCR or image upload**. The mobile screen asks the parent/child to type
-the question from the worksheet. Same offline/real-AI-with-fallback behavior as the tutor.
+Text-in only — **there is no OCR or image upload**. Same offline/real-AI-with-fallback behavior as
+the tutor.
 
 ## Operational
 
@@ -109,8 +132,6 @@ the question from the worksheet. Same offline/real-AI-with-fallback behavior as 
 
 ## Not yet implemented (see docs/DEVELOPMENT_PLAN.md for phasing)
 
-- Exercise submission as its own resource (`ExerciseAttempt`) distinct from the current
-  lesson-level `PUT .../progress/{lessonCode}` — Phase 2.
-- A reward-transaction ledger endpoint and badges — Phase 2.
-- Homework image upload (`POST .../homework/uploads` + S3) and OCR — Phase 6.
 - Any teacher-facing endpoint — out of MVP scope by design.
+- OCR-based homework image upload (`POST .../homework/uploads` + S3) — Phase 6.
+- A stateful tutor conversation resource matching the master spec's example route shape — Phase 4.

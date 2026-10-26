@@ -1,9 +1,12 @@
 # Database Design
 
 PostgreSQL, Flyway-migrated, append-only (never edit a migration that may have already run — add
-a new `V{n}__description.sql`).
+a new `V{n}__description.sql`). Current version: V8. Sanity-checked by replaying all eight
+migrations against H2 in PostgreSQL-compatibility mode (no Docker/Postgres available in this
+authoring environment — see TESTING.md); not a substitute for the real Postgres Testcontainers run
+CI performs.
 
-## Current schema (V1–V4, implemented and tested)
+## Schema
 
 ```
 parent_accounts
@@ -17,33 +20,16 @@ child_profiles
   parent_id UUID NOT NULL REFERENCES parent_accounts ON DELETE CASCADE
   display_name VARCHAR(60) NOT NULL
   birth_date DATE NOT NULL
-  grade_level VARCHAR(20) NOT NULL DEFAULT 'GRADE_1'   -- added V4
-  avatar VARCHAR(20) NOT NULL DEFAULT 'FOX'            -- added V4
+  grade_level VARCHAR(20) NOT NULL DEFAULT 'GRADE_1'   -- V4
+  avatar VARCHAR(20) NOT NULL DEFAULT 'FOX'            -- V4
   INDEX idx_child_profiles_parent_id (parent_id)
 
-child_learning_preferences                              -- added V4
+child_learning_preferences                              -- V4
   child_id UUID NOT NULL REFERENCES child_profiles ON DELETE CASCADE
   preference VARCHAR(20) NOT NULL
   PK (child_id, preference)
 
-lesson_progress
-  id UUID PK
-  child_id UUID NOT NULL REFERENCES child_profiles ON DELETE CASCADE
-  lesson_code VARCHAR(100) NOT NULL          -- opaque; no FK to a catalog table, see below
-  score INTEGER NOT NULL CHECK (0-100)
-  completed BOOLEAN NOT NULL DEFAULT FALSE
-  updated_at TIMESTAMPTZ NOT NULL
-  UNIQUE (child_id, lesson_code)
-  INDEX idx_lesson_progress_child_id (child_id)
-
-child_rewards
-  child_id UUID PK REFERENCES child_profiles ON DELETE CASCADE
-  coins INTEGER NOT NULL DEFAULT 0 CHECK (>= 0)
-  current_streak INTEGER NOT NULL DEFAULT 0 CHECK (>= 0)
-  longest_streak INTEGER NOT NULL DEFAULT 0 CHECK (>= 0)
-  last_activity_date DATE
-
-refresh_tokens                                          -- added V3
+refresh_tokens                                          -- V3
   id UUID PK
   parent_id UUID NOT NULL REFERENCES parent_accounts ON DELETE CASCADE
   token_hash VARCHAR(64) UNIQUE NOT NULL     -- SHA-256 hex of the raw token; raw value never stored
@@ -51,75 +37,146 @@ refresh_tokens                                          -- added V3
   expires_at TIMESTAMPTZ NOT NULL
   revoked BOOLEAN NOT NULL DEFAULT FALSE
   INDEX idx_refresh_tokens_parent_id (parent_id)
+
+-- Catalog (V5), seeded by V8 — Grade 1 Math only, see "Curriculum scope" below
+subjects
+  code VARCHAR(20) PK
+  name VARCHAR(100) NOT NULL
+
+skills
+  code VARCHAR(20) PK
+  subject_code VARCHAR(20) NOT NULL REFERENCES subjects
+  name VARCHAR(100) NOT NULL
+
+lessons
+  id UUID PK
+  code VARCHAR(100) UNIQUE NOT NULL
+  subject_code VARCHAR(20) NOT NULL REFERENCES subjects
+  display_order INTEGER NOT NULL
+  title VARCHAR(200) NOT NULL
+  description VARCHAR(500) NOT NULL
+
+exercises
+  id UUID PK
+  lesson_code VARCHAR(100) NOT NULL REFERENCES lessons(code)
+  skill_code VARCHAR(20) NOT NULL REFERENCES skills
+  display_order INTEGER NOT NULL
+  prompt VARCHAR(500) NOT NULL
+  answer_index INTEGER NOT NULL        -- never serialized into any API response, see ARCHITECTURE.md
+  explanation VARCHAR(500) NOT NULL
+  hint VARCHAR(500)
+  INDEX idx_exercises_lesson_code (lesson_code)
+
+exercise_choices                       -- @ElementCollection + @OrderColumn, not JSONB
+  exercise_id UUID NOT NULL REFERENCES exercises ON DELETE CASCADE
+  choice_index INTEGER NOT NULL
+  choice_text VARCHAR(200) NOT NULL
+  PK (exercise_id, choice_index)
+
+-- lesson_progress.lesson_code gained a real FK in V5, once lessons became DB rows (it had none
+-- before — see "Why the lesson_code FK was added late" below)
+lesson_progress
+  id UUID PK
+  child_id UUID NOT NULL REFERENCES child_profiles ON DELETE CASCADE
+  lesson_code VARCHAR(100) NOT NULL REFERENCES lessons(code)   -- FK added in V5
+  score INTEGER NOT NULL CHECK (0-100)        -- derived server-side, never client-submitted (V5+)
+  completed BOOLEAN NOT NULL DEFAULT FALSE    -- derived server-side (V5+)
+  updated_at TIMESTAMPTZ NOT NULL
+  UNIQUE (child_id, lesson_code)
+  INDEX idx_lesson_progress_child_id (child_id)
+
+-- Progress tracking (V6)
+exercise_attempts
+  id UUID PK
+  child_id UUID NOT NULL REFERENCES child_profiles ON DELETE CASCADE
+  exercise_id UUID NOT NULL REFERENCES exercises
+  submitted_answer_index INTEGER NOT NULL
+  correct BOOLEAN NOT NULL
+  attempted_at TIMESTAMPTZ NOT NULL
+  INDEX idx_exercise_attempts_child_exercise (child_id, exercise_id)
+
+skill_progress
+  child_id UUID NOT NULL REFERENCES child_profiles ON DELETE CASCADE
+  skill_code VARCHAR(20) NOT NULL REFERENCES skills
+  attempts_count INTEGER NOT NULL DEFAULT 0 CHECK (>= 0)
+  correct_count INTEGER NOT NULL DEFAULT 0 CHECK (>= 0)
+  last_attempt_at TIMESTAMPTZ
+  PK (child_id, skill_code)
+
+-- Rewards (V7) — coins became a ledger; child_rewards was renamed and lost its coins column
+child_streaks                          -- renamed from child_rewards in V7
+  child_id UUID PK REFERENCES child_profiles ON DELETE CASCADE
+  current_streak INTEGER NOT NULL DEFAULT 0 CHECK (>= 0)
+  longest_streak INTEGER NOT NULL DEFAULT 0 CHECK (>= 0)
+  last_activity_date DATE
+
+reward_transactions
+  id UUID PK
+  child_id UUID NOT NULL REFERENCES child_profiles ON DELETE CASCADE
+  delta_coins INTEGER NOT NULL
+  reason VARCHAR(200) NOT NULL
+  reference_type VARCHAR(50) NOT NULL
+  reference_id VARCHAR(100) NOT NULL
+  created_at TIMESTAMPTZ NOT NULL
+  UNIQUE (reference_type, reference_id)      -- the actual duplicate-award prevention, not just app logic
+  INDEX idx_reward_transactions_child_id (child_id)
+
+badges
+  code VARCHAR(50) PK
+  name VARCHAR(100) NOT NULL
+  description VARCHAR(300) NOT NULL
+
+child_badges
+  child_id UUID NOT NULL REFERENCES child_profiles ON DELETE CASCADE
+  badge_code VARCHAR(50) NOT NULL REFERENCES badges
+  awarded_at TIMESTAMPTZ NOT NULL
+  PK (child_id, badge_code)
 ```
 
-### Why `lesson_progress.lesson_code` has no foreign key
+## Curriculum scope: Grade 1 Math only
 
-This was a deliberate Sprint 1 decision, carried forward here rather than reversed: lesson content
-lives in `application.catalog.LessonCatalog` (in-code), not a database table, so curriculum can
-expand without a schema migration. At 5 lessons across 2 subjects this is the right size. It stops
-being the right size once the catalog needs admin editing or grows past a few dozen lessons — at
-that point, promote it to the `curriculum_units` / `lessons` tables sketched below (Phase 2) and
-add the foreign key then.
+V8 seeds exactly the five topics the master spec names for the MVP: Counting and Number
+Recognition, Addition, Subtraction, Number Comparison, Simple Word Problems — one subject
+(`MATH`), five skills (one per lesson), five lessons, fifteen exercises (three per lesson). English
+content added in an earlier, pre-master-spec session (`G1-ENG-01`/`G1-ENG-02`) was deliberately
+**not** carried into this DB-backed catalog, since section 3 of the master spec scopes the MVP to
+"Grade 1 mathematics using a Common Core-aligned curriculum" specifically. Adding English back is
+straightforward (one more `INSERT INTO subjects` + skills/lessons/exercises rows) whenever it's
+back in scope.
 
-## Planned schema for Phase 2 ("Learning engine") — not yet implemented
+## Why the `lesson_code` FK was added late
 
-This master spec asks for a fuller entity model: `Subject`, `CurriculumUnit`, `Lesson`, `Skill`,
-`Exercise`, `ExerciseAttempt`, `LearningSession`, `SkillProgress`, `RewardTransaction` (an auditable
-ledger replacing the current single-row `child_rewards` accumulator), `Badge`, `ChildBadge`,
-`TutorSession`, `TutorMessage`. None of these tables exist yet. Sketch (subject to revision when
-Phase 2 actually starts):
+Sprint 1 deliberately left `lesson_progress.lesson_code` without a foreign key, because the
+catalog lived in code (`LessonCatalog`), not a table — there was nothing to reference. Once
+exercises needed individual, stable, server-side-only identities (so a correct answer could be
+checked without ever handing it to the client), lessons had to become real rows, and the FK
+followed naturally. This is not a reversal of the original reasoning, it's the reasoning reaching
+its natural conclusion once the catalog's shape changed for an unrelated reason (server-side
+grading), not because five lessons suddenly needed enterprise normalization for its own sake.
 
-```
-subjects(id, code, name)
-curriculum_units(id, subject_id FK, grade_level, title, display_order)
-lessons(id, curriculum_unit_id FK, code, title, description, display_order)
-skills(id, subject_id FK, code, name)
-exercises(id, lesson_id FK, skill_id FK, prompt, choices JSONB, answer_index, display_order)
-exercise_attempts(id, child_id FK, exercise_id FK, submitted_answer_index, is_correct, attempted_at)
-learning_sessions(id, child_id FK, started_at, ended_at)
-skill_progress(id, child_id FK, skill_id FK, mastery_score, attempts_count, last_attempt_at)
-reward_transactions(id, child_id FK, delta_coins, reason, reference_type, reference_id, created_at)
-badges(id, code, name, description, criteria)
-child_badges(child_id FK, badge_id FK, awarded_at, PK(child_id, badge_id))
-tutor_sessions(id, child_id FK, subject_id FK, started_at)
-tutor_messages(id, tutor_session_id FK, role, content, strategy, created_at)
-```
+## Mastery algorithm — still deliberately simple
 
-Rationale for `reward_transactions` as a ledger rather than mutating `child_rewards` directly:
-an auditable append-only ledger (as the spec requires — "store reward transactions in an auditable
-ledger") lets you reconstruct *why* a child has N coins, not just the current total, and makes
-duplicate-reward prevention a query ("has a transaction with this reference_id already been
-recorded?") rather than an implicit side effect buried in service logic.
+`SkillProgress.masteryRatio()` is `correctCount / attemptsCount` — a plain recent-accuracy ratio,
+nothing more sophisticated. The parent dashboard does not surface per-skill mastery yet (it still
+reports per-*subject* strongest/weakest, computed from `lesson_progress`, unchanged from before);
+exposing skill-level mastery to parents is a reasonable next step, but should keep this same
+plain-ratio honesty — do not let a UI label imply it measures a child's overall ability from a
+handful of attempts.
 
-## Mastery algorithm — explicitly provisional
+## Retention and deletion
 
-There is no mastery algorithm implemented yet (it belongs to Phase 2's `skill_progress` work).
-When one is built: keep it simple and transparent (e.g. a rolling accuracy rate over the last N
-attempts per skill, with a minimum attempt count before reporting anything), document its exact
-formula next to the code, and do not claim it reliably measures a child's overall ability from a
-handful of answers — report it to parents as "recent practice accuracy," not "mastery."
-
-## Retention and deletion (required by the master spec; not yet implemented as code)
-
-- **Child profiles**: deleting a `parent_accounts` row cascades to `child_profiles`,
-  `lesson_progress`, `child_rewards`, and `child_learning_preferences` via `ON DELETE CASCADE`.
-  There is no API endpoint yet for a parent to delete their own account or a child profile — only
-  the cascade behavior exists at the schema level. A delete-account endpoint is a Phase 5
-  ("hardening") item.
-- **Refresh tokens**: revoked/expired rows are kept (not deleted) as an audit trail, per
-  `AuthService`'s design. A scheduled cleanup job to purge long-expired, already-revoked tokens
-  does not exist yet — on a long-running production deployment this table grows unboundedly. Noted
-  as a limitation, not fixed here.
-- **Homework images**: not applicable yet — homework help is text-only in this phase (no OCR, no
-  image upload, no S3 adapter). When OCR is built (Phase 6), uploaded images must go to private S3
-  storage with short-lived signed URLs, as the spec requires, and a retention policy must be
-  defined before that feature ships.
-- **Tutor conversations**: not persisted at all today — each tutor request is stateless (the
-  mobile app tracks the `attempt` counter client-side; nothing server-side remembers prior
-  messages). This means there is currently nothing to retain or delete for tutor conversations,
-  which is the simplest possible privacy posture, but also means `TutorSession`/`TutorMessage`
-  (Phase 2) will need a retention policy defined before they ship.
+- **Child profiles**: deleting a `parent_accounts` row cascades through every table above via
+  `ON DELETE CASCADE` (`child_profiles`, `lesson_progress`, `child_streaks`, `reward_transactions`,
+  `child_badges`, `exercise_attempts`, `skill_progress`, `child_learning_preferences`). There is
+  still no API endpoint for a parent to delete their own account or a child profile — only the
+  cascade behavior exists at the schema level; a delete-account endpoint remains a Phase 5 item.
+- **Refresh tokens**: revoked/expired rows are kept as an audit trail, not deleted. No scheduled
+  cleanup job exists — unbounded growth over a long-running deployment, unchanged limitation.
+- **Reward transactions**: never deleted or mutated once written — the ledger is append-only by
+  design, which is what makes it auditable.
+- **Homework images**: still not applicable — homework help is text-only (no OCR, no upload, no
+  S3 adapter). Unchanged from before.
+- **Tutor conversations**: still not persisted — each tutor request remains stateless. Unchanged.
 
 **No legal compliance claim is made here.** Parental consent requirements, applicable children's
 privacy laws (e.g. COPPA in the US), app-store policies, and any education-data regulations must

@@ -1,88 +1,105 @@
 # Implementation Status
 
-Last updated: this session (master-spec alignment pass, Phase 0 + partial Phase 1).
+Last updated: this session (Phase 2 "Learning engine" + Phase 3 "Flutter application", following
+the master-spec-alignment pass that did Phase 0/1).
 
 ## What exists coming into this session
 
-A working backend (parent auth, child profiles, a 5-lesson/2-subject catalog, progress tracking,
-coin/streak gamification, an AI tutor, a text-based homework helper, a parent dashboard) and a
-Flutter mobile client wired to all of it, built in earlier sessions before this master spec was
-provided. 33 backend unit tests, 7 mobile tests, both suites green.
+Phase 0/1 complete: repo restructured into `backend/`/`mobile/`/`docs/`/`infrastructure/`, rotating
+refresh tokens + Redis-backed auth rate limiting, `ChildProfile` extended with
+grade/avatar/preferences. 40 backend unit tests, 7 mobile tests, both green. The lesson catalog was
+still in-code (5 lessons, 2 subjects) and the mobile app still used plain `StatefulWidget`s.
 
-## What this session did (Phase 0 + Phase 1 items)
+## What this session did
 
-### Phase 0 — Inspect and plan
+### Phase 2 — Learning engine (backend)
 
-- Inspected tooling: Java 23 runtime (pom targets `--release 21`), Maven wrapper 3.9.11, Flutter
-  3.44.9, Git 2.50.1. **Not available**: Docker, `psql`, `redis-cli`, `gh` CLI.
-- Restructured the repo into the monorepo layout the master spec asks for:
-  `backend/` (was repo root), `mobile/` (already there), `docs/` (new — PRD/ARCHITECTURE/TESTING/
-  RISKS_AND_TRADEOFFS moved in, four new docs added), `infrastructure/` (new). Root `CLAUDE.md`
-  added. `docker-compose.yml` moved to repo root and updated (build context `./backend`, Redis
-  service added). `.github/workflows/ci.yml` updated for the new `backend/` path. All moves used
-  `git mv` to preserve history.
-- Wrote: `docs/ARCHITECTURE.md` (rewritten), `docs/DATABASE_DESIGN.md` (new),
-  `docs/API_SPECIFICATION.md` (new), `docs/SECURITY_AND_CHILD_SAFETY.md` (new),
-  `docs/DEVELOPMENT_PLAN.md` (new, maps this session's phases onto the master spec's phases),
-  `docs/ADR/0001`–`0004` (new), this file.
+- **Promoted the lesson catalog to the database**: `subjects`, `skills`, `lessons`, `exercises`,
+  `exercise_choices` (migrations V5), seeded by V8 with exactly the five Math topics the master
+  spec names (Counting and Number Recognition, Addition, Subtraction, Number Comparison, Simple
+  Word Problems) — English content from an earlier pre-spec session was not carried forward.
+  `application.catalog.LessonCatalogService` replaces the old in-code `LessonCatalog` with the
+  same facade shape.
+- **Server-side exercise grading, for real**: `ExerciseAnswerKey` (the correct answer index) is
+  fetched only by `ExerciseEvaluationService` and never serialized into any controller response —
+  `GET /lessons/{code}` now returns exercises with no answer index at all. `POST
+  /children/{id}/exercises/{id}/attempts` records the attempt, updates `SkillProgress`, and
+  triggers `ProgressService.recalculate`, which derives the lesson's score/completion from every
+  exercise attempted so far (migrations V6).
+- **Removed `PUT /children/{id}/progress/{lessonCode}`** — the endpoint that used to let a client
+  set its own score/completion outright. This was the actual fix for the integrity gap flagged in
+  RISKS_AND_TRADEOFFS.md in the previous pass, not a new parallel path left alongside the old one.
+- **Rewards became an auditable ledger**: `reward_transactions` (migration V7) replaces the
+  single mutable `coins` column; `RewardsService.award` is idempotent on
+  `(referenceType, referenceId)`, checked in application code and enforced by a database unique
+  constraint. `child_rewards` was renamed to `child_streaks` and lost its `coins` column in the
+  same migration. Two badges (`FIRST_STEPS`, `FIVE_DAY_STREAK`) are evaluated automatically after
+  every award via `BadgeService`.
+- Added 24 new backend tests across `LessonCatalogServiceTest`, `ExerciseEvaluationServiceTest`,
+  `BadgeServiceTest`, plus rewrote `ProgressServiceTest`, `RewardsServiceTest`, and
+  `DashboardServiceTest` for the new collaborators.
 
-### Phase 1 — Working backend foundation
+### Phase 3 — Flutter application (mobile)
 
-- **Refresh tokens** (did not exist before): `domain.auth.RefreshToken`,
-  `application.auth.RefreshTokenRepository` (port), `infrastructure.persistence.RefreshTokenEntity`
-  + JPA adapter, migration `V3__create_refresh_tokens.sql`. `AuthService` now issues a rotating,
-  single-use refresh token on register/login, validates+rotates it on `POST /auth/refresh`, and
-  revokes it on `POST /auth/logout`. Raw tokens are never persisted, only a SHA-256 hash.
-- **Redis-backed rate limiting** on `POST /api/v1/auth/**`: `infrastructure.security.
-  AuthRateLimitFilter`, wired into `SecurityConfig`. Fails open (allows the request, logs a
-  warning) if Redis is unreachable. `spring-boot-starter-data-redis` added to `pom.xml`;
-  `docker-compose.yml` runs a Redis container; `application.yml` reads `REDIS_HOST`/`REDIS_PORT`.
-- **`ChildProfile` extended** with `gradeLevel`, `avatar`, `learningPreferences` — all optional
-  with defaults (`GRADE_1`/`FOX`/empty set) so the existing mobile "add child" flow, which only
-  sends `displayName`/`birthDate`, keeps working unmodified. New domain enums
-  `GradeLevel`/`Avatar`/`LearningPreference`; migration `V4__add_child_profile_attributes.sql`
-  (two new columns + a `child_learning_preferences` join table); `ChildProfileEntity` updated with
-  an `@ElementCollection`.
-- Updated `AuthServiceTest` (10 tests, up from 4) and `ChildServiceTest` (3 tests, up from 2) to
-  cover all of the above; both green.
+- Added `flutter_riverpod` and introduced `SessionController`
+  (`features/auth/application/session_controller.dart`), a `StateNotifier<AsyncValue<Session?>>`
+  owning restore/login/register/sign-out. `app.dart` and `AuthScreen` became
+  `ConsumerWidget`/`ConsumerStatefulWidget`. See ADR 0003 for the explicit boundary: leaf tabs
+  (`LessonListTab`, `TutorTab`, `HomeworkTab`, `ParentDashboard`) still receive `token`/`api` via
+  constructor from `HomeScreen`, by deliberate choice.
+- **Rewrote `LessonScreen`** for the new per-exercise flow: shows one exercise at a time, submits
+  each answer via the new endpoint, shows immediate correct/incorrect + explanation + (if wrong) a
+  hint, then "Next question"/"Finish lesson." The old whole-lesson client-side `LessonAttempt`
+  scoring class is gone — there was nothing left for the client to grade.
+- Updated `NovaLearnApi`/domain models for every Phase 2 API shape change: `Lesson.exercises` (no
+  `answerIndex`), new `ExerciseRepository.submitAnswer`, `ProgressRepository` lost
+  `recordProgress`, new `BadgesRepository`, `AuthSession`/`Session` gained `refreshToken`.
+- `ParentDashboard` now also shows earned badges (plain chips, not a dedicated screen).
+- `SessionStore` persists the refresh token; `AuthRepository` gained `refresh`/`logout` — but no
+  automatic retry-after-refresh-on-401 was built (see RISKS_AND_TRADEOFFS.md).
+- Replaced `lesson_attempt_test.dart` with `lesson_test.dart` (JSON parsing for the new shapes);
+  updated `novalearn_api_test.dart` and `widget_test.dart` for the new request/response shapes and
+  the Riverpod-wrapped `AuthScreen`.
 
 ## Commands actually executed, and their results
 
 ```sh
 cd backend && ./mvnw -q clean test -Dtest='!PostgresIntegrationTest' -DfailIfNoTests=false
-# -> 40 tests, 0 failures, 0 errors (run repeatedly through this session, after each change)
+# -> 52 tests, 0 failures, 0 errors (run repeatedly through this session, after each change)
 
 cd backend && ./mvnw clean verify
-# -> 41 tests run, 40 pass, 1 error: PostgresIntegrationTest fails with
+# -> 53 tests run, 52 pass, 1 error: PostgresIntegrationTest fails with
 #    "IllegalState: Could not find a valid Docker environment." (expected — no Docker here)
 
-cd mobile && flutter analyze
+# Sanity-checked V1-V8 by replaying them against H2 (PostgreSQL-compatibility mode) via a
+# throwaway JDBC script in the scratchpad directory (deleted afterward, not part of the repo):
+# -> "ALL MIGRATIONS APPLIED SUCCESSFULLY" after fixing one real bug the check caught (a
+#    multi-line SQL comment containing a literal ';' confused the script's own comment-stripping
+#    logic on the first attempt — fixed in the script, not the migration, which was correct).
+
+cd mobile && flutter pub get && flutter analyze
 # -> "No issues found!"
 
-cd mobile && flutter test --reporter expanded
-# -> "All tests passed!" (7 tests)
+cd mobile && flutter test
+# -> "All tests passed!" (9 tests)
 ```
 
-No command was run and then assumed to pass without observing its output — every number above is
-copied from an actual run in this session, not estimated.
+No command was run and then assumed to pass without observing its output.
 
-## Known issues / explicitly deferred (see docs/DEVELOPMENT_PLAN.md and docs/RISKS_AND_TRADEOFFS.md for the full list)
+## Known issues / explicitly deferred
 
-- Mobile does not yet use the new refresh token (still only persists the access token) — not a
-  regression, just not caught up yet (Phase 3).
-- No automated test exercises `AuthRateLimitFilter` against a real/embedded Redis.
-- The richer curriculum/exercise/skill/reward-ledger/badge schema from the master spec is not
-  built — explicitly deferred to Phase 2, with a schema sketch already written in
-  `docs/DATABASE_DESIGN.md` so that phase starts from a reviewed plan.
-- Riverpod migration (ADR 0003) decided, not implemented (Phase 3).
-- AI output structured-validation/strict-schema/refusal-handling not implemented — see
-  `docs/SECURITY_AND_CHILD_SAFETY.md` for why (never exercised against a real model response in
-  this environment) and `docs/DEVELOPMENT_PLAN.md` Phase 4 for the plan.
+- No Testcontainers-backed integration test exercises the full exercise-attempt → lesson-completion
+  → reward-ledger → badge flow end to end against a real database (only unit-tested with mocks) —
+  no Docker available here to build and verify one.
+- The mobile app's new per-exercise `LessonScreen` has never been run on a simulator/emulator or
+  device — verified only via `flutter analyze`/`flutter test`, which don't exercise the actual UI.
+- Automatic token refresh on a 401 is not implemented (see RISKS_AND_TRADEOFFS.md).
+- AI output structured-validation/strict-schema/refusal-handling (Phase 4) still not implemented.
 
 ## Exact next action
 
-Start Phase 2 ("Learning engine"): build the `Exercise`/`ExerciseAttempt`/`Skill`/`SkillProgress`
-entities and endpoints, replace the single-row `child_rewards` accumulator with an auditable
-`reward_transactions` ledger, and add badges — using the schema already sketched in
-`docs/DATABASE_DESIGN.md` as the starting point. Verify with real `./mvnw test` runs after each
-sub-step, the same way this session did, rather than attempting the whole phase in one pass.
+Either: (a) pick up Phase 4's remaining AI-tutor hardening items (structured output validation,
+per-session rate limiting on AI calls) now that a real learning-engine data model exists to anchor
+tutor context against, or (b) if real Docker/device access becomes available, prioritize running
+the Testcontainers integration test and the mobile app on an actual emulator before adding more
+features — both are currently blind spots that only real tooling can close, not more code.

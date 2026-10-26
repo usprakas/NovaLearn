@@ -28,6 +28,17 @@ boundary of this document (technical mechanics only — not a compliance certifi
   nickname), `birthDate`, `gradeLevel`, `avatar` (one of five fixed illustrated choices — never a
   photo), and optional `learningPreferences` tags. No child email, phone number, address, or photo
   is collected anywhere in this API.
+- **Exercise answers are graded server-side and the answer key never reaches the client.**
+  `GET /lessons/{code}` returns each exercise's prompt and choices but not its correct-answer
+  index; that index lives only behind `ExerciseAnswerKey`, read exclusively by
+  `ExerciseEvaluationService`. A prior version let the client compute its own score from an
+  embedded answer index and submit a final `{score, completed}` directly — that endpoint
+  (`PUT .../progress/{lessonCode}`) is gone, not just supplemented, closing what was previously
+  documented here as a real, named gap ("Prevent clients from awarding themselves arbitrary
+  points" from the master spec).
+- **Reward issuance is idempotent against retries.** `RewardsService.award` checks
+  `(referenceType, referenceId)` before inserting, and a database unique constraint catches the
+  same case under a concurrent race — a resent request can never double-award coins.
 - **AI output is treated as untrusted input**: the tutor/homework endpoints never return a raw,
   unvalidated model response directly from an exception path — a real-provider failure is caught
   and the response falls back to a pre-written, reviewed offline template rather than surfacing

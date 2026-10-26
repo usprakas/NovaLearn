@@ -51,7 +51,8 @@ curl -s -X POST http://localhost:8080/api/v1/children \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"displayName":"Maya","birthDate":"2020-01-01"}'
 
-# List lessons, ask the tutor, etc. — see docs/API_SPECIFICATION.md for the full set.
+# List lessons (server-graded exercises; no answer key is ever returned), ask the tutor, etc. —
+# see docs/API_SPECIFICATION.md for the full set.
 ```
 
 ## Quality gates
