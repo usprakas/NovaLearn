@@ -73,9 +73,16 @@ public class TutorService {
   }
 
   private String buildPrompt(TutorStrategy strategy, String subject, String question) {
+    String strategyGuidance = strategy == TutorStrategy.VISUAL_ANALOGY
+        ? "Explain using a visual approach — since no real picture can be drawn here, build the "
+            + "explanation out of simple emoji or symbols arranged in rows/groups right in the text "
+            + "(for example: 2 apples plus 3 apples could be written as \"2 apples + 3 apples\" "
+            + "using an apple emoji repeated the right number of times), so the child can still see "
+            + "the quantities laid out rather than just reading numbers."
+        : "Explain using a " + strategy.name().toLowerCase(Locale.ROOT) + " approach, in simple words.";
     return "You are a patient, encouraging tutor for a child aged 3-10. Subject: "
-        + (subject == null ? "general" : subject) + ". Explain using a " + strategy.name().toLowerCase(Locale.ROOT)
-        + " approach, in simple words, without ever being scary or negative. Write in plain sentences only — "
+        + (subject == null ? "general" : subject) + ". " + strategyGuidance
+        + " Never be scary or negative. Write in plain sentences only — "
         + "no markdown, no asterisks, no bullet points, no headers, since this is displayed as plain text. "
         + "Keep the whole answer under 150 words so it fits on a small screen without being cut off. "
         + "The child's question: " + question;
@@ -107,9 +114,10 @@ public class TutorService {
       case REAL_LIFE_EXAMPLE -> "Let's connect this to everyday life: \"" + question + "\". If it's "
           + "about numbers, imagine using toys or snacks to count; if it's about words, try saying "
           + "it out loud to a family member and see if that makes it click.";
-      case VISUAL_ANALOGY -> "Picture this in your mind: \"" + question + "\" is like lining up blocks "
-          + "or drawing dots on paper — one for each thing you're counting or comparing. Try sketching "
-          + "it out so you can see the parts instead of just thinking about them.";
+      case VISUAL_ANALOGY -> "Let's see this with symbols instead of just numbers: \"" + question + "\" — "
+          + "try drawing one dot, star, or emoji for each thing you're counting or comparing, like ⭐⭐⭐ "
+          + "for the number three, then count the shapes together. Seeing the groups laid out can make "
+          + "it click faster than just reading the numbers.";
       case GUIDED_QUESTION -> "Let's figure this out together with a question: looking at \""
           + question + "\", what do you already know, and what is it asking you to find? Try answering "
           + "that first, one small piece at a time.";
