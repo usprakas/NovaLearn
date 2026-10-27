@@ -22,7 +22,12 @@ import java.util.regex.Pattern;
  */
 public final class GeminiTextClient implements AiTextClient {
 
-  private static final String MODEL = "gemini-2.5-flash";
+  // "latest" alias rather than a pinned version: Google has repeatedly retired dated model names
+  // out from under this key during development (gemini-2.5-flash and gemini-2.0-flash both
+  // returned 404 "no longer available" even though the former still appears in /v1beta/models).
+  // A lite model is intentionally chosen over a full/pro model — tutor/homework responses are
+  // capped at 500 output tokens for short, simple Grade 1-level explanations.
+  private static final String MODEL = "gemini-flash-lite-latest";
 
   private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
   private final String apiKey;
@@ -34,7 +39,7 @@ public final class GeminiTextClient implements AiTextClient {
   @Override
   public String complete(String prompt) {
     String body = "{\"contents\":[{\"parts\":[{\"text\":\"" + escape(prompt) + "\"}]}],"
-        + "\"generationConfig\":{\"maxOutputTokens\":300}}";
+        + "\"generationConfig\":{\"maxOutputTokens\":500}}";
     HttpRequest request = HttpRequest.newBuilder(URI.create(
             "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent?key=" + apiKey))
         .header("content-type", "application/json")
@@ -55,12 +60,39 @@ public final class GeminiTextClient implements AiTextClient {
     }
   }
 
-  private String extractText(String responseBody) {
-    Matcher matcher = Pattern.compile("\"text\"\\s*:\\s*\"(.*?)\"", Pattern.DOTALL).matcher(responseBody);
-    return matcher.find() ? matcher.group(1) : responseBody;
+  String extractText(String responseBody) {
+    // (?:[^"\\]|\\.)* correctly walks past escaped quotes/backslashes inside the JSON string
+    // value, unlike a naive ".*?" which stops at the first literal quote — including one that's
+    // actually part of an escape sequence like \" inside the model's own response text.
+    Matcher matcher = Pattern.compile("\"text\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"", Pattern.DOTALL)
+        .matcher(responseBody);
+    return matcher.find() ? unescapeJson(matcher.group(1)) : responseBody;
   }
 
   private String escape(String value) {
     return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n");
+  }
+
+  /** Reverses {@link #escape}-style JSON string escaping on a real response's text content. */
+  private String unescapeJson(String value) {
+    StringBuilder out = new StringBuilder(value.length());
+    for (int i = 0; i < value.length(); i++) {
+      char c = value.charAt(i);
+      if (c == '\\' && i + 1 < value.length()) {
+        char next = value.charAt(++i);
+        switch (next) {
+          case 'n' -> out.append('\n');
+          case 'r' -> out.append('\r');
+          case 't' -> out.append('\t');
+          case '"' -> out.append('"');
+          case '\\' -> out.append('\\');
+          case '/' -> out.append('/');
+          default -> out.append(next);
+        }
+      } else {
+        out.append(c);
+      }
+    }
+    return out.toString();
   }
 }

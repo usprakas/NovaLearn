@@ -67,7 +67,9 @@ public class HomeworkService {
     return "A parent typed this homework question exactly as written on their child's worksheet: \""
         + question + "\". Write 3-5 short, numbered, child-friendly guidance steps that build "
         + "understanding (do not just give the final answer), one per line, followed by a short "
-        + "encouraging closing hint on its own line.";
+        + "encouraging closing hint on its own line. Plain sentences only — no markdown, no asterisks, "
+        + "no bullet characters — just the number and a period before each step, since this is "
+        + "displayed as plain text. Keep every step short.";
   }
 
   private HomeworkGuidance fromAiResponse(String raw) {

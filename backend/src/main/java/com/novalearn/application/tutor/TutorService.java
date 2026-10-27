@@ -75,7 +75,10 @@ public class TutorService {
   private String buildPrompt(TutorStrategy strategy, String subject, String question) {
     return "You are a patient, encouraging tutor for a child aged 3-10. Subject: "
         + (subject == null ? "general" : subject) + ". Explain using a " + strategy.name().toLowerCase(Locale.ROOT)
-        + " approach, in simple words, without ever being scary or negative. The child's question: " + question;
+        + " approach, in simple words, without ever being scary or negative. Write in plain sentences only — "
+        + "no markdown, no asterisks, no bullet points, no headers, since this is displayed as plain text. "
+        + "Keep the whole answer under 150 words so it fits on a small screen without being cut off. "
+        + "The child's question: " + question;
   }
 
   private String safeRedirectMessage() {

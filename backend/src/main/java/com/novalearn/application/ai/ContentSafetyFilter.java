@@ -17,7 +17,7 @@ public final class ContentSafetyFilter {
       "drug", "drugs", "alcohol", "weapon", "gun", "knife", "bomb",
       "address", "phone number", "credit card", "social security", "password");
 
-  public static final int MAX_RESPONSE_LENGTH = 800;
+  public static final int MAX_RESPONSE_LENGTH = 1200;
 
   private ContentSafetyFilter() { }
 
@@ -29,8 +29,24 @@ public final class ContentSafetyFilter {
     return BLOCKED_KEYWORDS.stream().noneMatch(lower::contains);
   }
 
-  /** Caps response length rather than discarding an otherwise-safe answer that ran long. */
+  /**
+   * Caps response length rather than discarding an otherwise-safe answer that ran long. Truncates
+   * at the last sentence boundary (. ! or ?) before the limit when one exists reasonably close to
+   * it, rather than cutting off mid-word/mid-sentence — a child-facing explanation that just stops
+   * partway through a sentence reads as broken, not merely short.
+   */
   public static String capLength(String text) {
-    return text.length() <= MAX_RESPONSE_LENGTH ? text : text.substring(0, MAX_RESPONSE_LENGTH) + "...";
+    if (text.length() <= MAX_RESPONSE_LENGTH) {
+      return text;
+    }
+    String truncated = text.substring(0, MAX_RESPONSE_LENGTH);
+    int lastSentenceEnd = Math.max(truncated.lastIndexOf('.'),
+        Math.max(truncated.lastIndexOf('!'), truncated.lastIndexOf('?')));
+    // Only prefer the sentence boundary if it doesn't throw away more than a quarter of the
+    // allowed length — otherwise a mid-word cut with an ellipsis is the lesser evil.
+    if (lastSentenceEnd >= MAX_RESPONSE_LENGTH * 3 / 4) {
+      return truncated.substring(0, lastSentenceEnd + 1);
+    }
+    return truncated + "...";
   }
 }
