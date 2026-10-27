@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required by speech_to_text for the tutor/homework voice-input mic button. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="novalearn_mobile"
         android:name="${applicationName}"

@@ -9,7 +9,9 @@ credentials, no vision/speech API key, no device/emulator, no app-store access),
 faking them, this pass built real, working Phase 1–3 functionality (backend + learning engine +
 mobile) and wired the two genuinely AI-shaped features — the tutor and the homework helper —
 behind a real swappable interface (`AiTextClient`) with a deterministic offline implementation as
-the default and a real Anthropic Messages API client as the opt-in path.
+the default, with two opt-in real-provider adapters behind the same `AiTextClient` port: a real
+Anthropic Messages API client, and a real Google Gemini client (a genuinely free-tier-eligible
+alternative — see "Known limitations" below for the data-use trade-off that comes with it).
 
 ## What's real vs. what's a stand-in
 
@@ -22,7 +24,7 @@ the default and a real Anthropic Messages API client as the opt-in path.
 | **Server-side exercise grading** | Real: the answer index is never serialized to the client; `ExerciseEvaluationService` is the only code path that ever reads it |
 | Gamification: coins (ledger), streaks, badges | Real, persisted, tested, including day-boundary streak logic and idempotent award-on-retry |
 | Parent dashboard aggregation | Real, computed from live progress + rewards data |
-| AI tutor | Real offline templates by default; real Anthropic API call if `ANTHROPIC_API_KEY` is set (untested against the live API here — no key provisioned); now 5 strategies, refuses unsafe questions without ever calling the AI, and treats a real AI response as untrusted input subject to the same safety filter |
+| AI tutor | Real offline templates by default; a real Anthropic or Gemini API call if `ANTHROPIC_API_KEY` or `GEMINI_API_KEY` is set (Anthropic takes precedence if both are); 5 strategies, refuses unsafe questions without ever calling the AI, and treats a real AI response as untrusted input subject to the same safety filter |
 | Homework helper | Same pattern as the tutor, including the unsafe-input/unsafe-output handling above. **Not OCR** — the input is typed text, never a photo (see `docs/PHASE_6_PLAN.md`) |
 | Content safety filter (`ContentSafetyFilter`) | Real, tested: a keyword denylist checked on both the child's question and (for a real AI call) the model's response, plus a response-length cap. A real, narrow implementation — not a claim of comprehensive moderation; see "Known limitations" below |
 | Per-child AI rate limiting (`AiRateLimitFilter`) | Real, Redis-backed, fails open; default 20 requests/minute/child, separate from the IP-based auth limiter |
@@ -72,6 +74,12 @@ the default and a real Anthropic Messages API client as the opt-in path.
 - **Mastery is a plain accuracy ratio** (`correctCount / attemptsCount`), not surfaced to parents
   yet beyond the existing subject-level strongest/weakest signal. See "Mastery algorithm" in
   DATABASE_DESIGN.md for why it should stay this simple even when it is surfaced.
+- **The Gemini adapter's free tier uses submitted content to improve Google's products**, per
+  Google's own pricing documentation — unlike Anthropic's paid API, there is no equivalent
+  "your data isn't used for training" guarantee on the free tier. This is a real trade-off for a
+  children's-data app: reasonable for local testing/demos (which is what prompted adding this
+  adapter), not something to enable in a production deployment with real children's questions
+  without that trade-off being explicitly, knowingly accepted.
 - **Flyway migrations V5–V8 (the Phase 2 schema) were sanity-checked by replaying them against H2
   in PostgreSQL-compatibility mode**, not a real Postgres — there is no Docker in this environment.
   This caught real syntax issues during authoring (see TESTING.md) but is not equivalent to the

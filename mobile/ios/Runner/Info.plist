@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>NovaLearn uses the microphone so your child can ask the tutor a question by voice instead of typing.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>NovaLearn converts your child's spoken question into text to send to the tutor.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
