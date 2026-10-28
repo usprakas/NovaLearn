@@ -2,6 +2,7 @@ package com.novalearn.application.catalog;
 
 import com.novalearn.domain.catalog.Exercise;
 import com.novalearn.domain.catalog.LessonDefinition;
+import com.novalearn.domain.child.GradeLevel;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -30,6 +31,14 @@ public class LessonCatalogService {
   @Transactional(readOnly = true)
   public List<LessonDefinition> all() {
     return lessons.findAll().stream()
+        .sorted(Comparator.comparing(LessonDefinition::subject).thenComparing(LessonDefinition::order))
+        .toList();
+  }
+
+  /** Only the lessons at exactly this grade — a child never sees another grade's catalog. */
+  @Transactional(readOnly = true)
+  public List<LessonDefinition> forGrade(GradeLevel gradeLevel) {
+    return lessons.findByGradeLevel(gradeLevel).stream()
         .sorted(Comparator.comparing(LessonDefinition::subject).thenComparing(LessonDefinition::order))
         .toList();
   }

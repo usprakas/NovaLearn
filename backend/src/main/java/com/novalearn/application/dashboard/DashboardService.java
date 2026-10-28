@@ -6,6 +6,8 @@ import com.novalearn.application.common.ChildNotFoundException;
 import com.novalearn.application.progress.LessonProgressRepository;
 import com.novalearn.application.rewards.RewardsService;
 import com.novalearn.domain.catalog.LessonDefinition;
+import com.novalearn.domain.child.ChildProfile;
+import com.novalearn.domain.child.GradeLevel;
 import com.novalearn.domain.dashboard.ChildDashboard;
 import com.novalearn.domain.progress.LessonProgress;
 import com.novalearn.domain.rewards.ChildRewardsSummary;
@@ -39,9 +41,9 @@ public class DashboardService {
 
   @Transactional(readOnly = true)
   public ChildDashboard get(UUID parentId, UUID childId) {
-    if (!children.belongsToParent(childId, parentId)) {
-      throw new ChildNotFoundException();
-    }
+    ChildProfile child = children.findById(childId)
+        .filter(c -> c.parentId().equals(parentId))
+        .orElseThrow(ChildNotFoundException::new);
     List<LessonProgress> attempts = progress.findByChildId(childId);
     Instant weekAgo = Instant.now().minus(Duration.ofDays(7));
     long completedThisWeek = attempts.stream().filter(p -> p.completed() && p.updatedAt().isAfter(weekAgo)).count();
@@ -69,19 +71,22 @@ public class DashboardService {
     }
 
     ChildRewardsSummary childRewards = rewards.get(parentId, childId);
-    LessonDefinition recommended = recommendNextLesson(attempts);
+    LessonDefinition recommended = recommendNextLesson(attempts, child.gradeLevel());
     return new ChildDashboard((int) completedThisWeek, attempts.size(), averageScore, strongestSubject, weakestSubject,
         childRewards.coins(), childRewards.currentStreak(), childRewards.longestStreak(),
         recommended == null ? null : recommended.code(), recommended == null ? null : recommended.title());
   }
 
-  /** The first catalog lesson, in display order, the child has not yet completed — a plain "next up," not a personalized recommendation. */
-  private LessonDefinition recommendNextLesson(List<LessonProgress> attempts) {
+  /**
+   * The first catalog lesson at the child's own grade, in display order, not yet completed — a
+   * plain "next up" within their grade, not a personalized/cross-grade recommendation.
+   */
+  private LessonDefinition recommendNextLesson(List<LessonProgress> attempts, GradeLevel gradeLevel) {
     Set<String> completedLessonCodes = attempts.stream()
         .filter(LessonProgress::completed)
         .map(LessonProgress::lessonCode)
         .collect(java.util.stream.Collectors.toSet());
-    return catalog.all().stream()
+    return catalog.forGrade(gradeLevel).stream()
         .filter(lesson -> !completedLessonCodes.contains(lesson.code()))
         .findFirst()
         .orElse(null);

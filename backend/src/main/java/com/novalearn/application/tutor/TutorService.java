@@ -6,6 +6,8 @@ import com.novalearn.application.catalog.LessonCatalogService;
 import com.novalearn.application.child.ChildProfileRepository;
 import com.novalearn.application.common.ChildNotFoundException;
 import com.novalearn.domain.catalog.LessonDefinition;
+import com.novalearn.domain.child.ChildProfile;
+import com.novalearn.domain.child.GradeLevel;
 import com.novalearn.domain.tutor.TutorAnswer;
 import com.novalearn.domain.tutor.TutorStrategy;
 import java.util.List;
@@ -41,9 +43,9 @@ public class TutorService {
 
   @Transactional(readOnly = true)
   public TutorAnswer ask(UUID parentId, UUID childId, String question, String subject, int attempt) {
-    if (!children.belongsToParent(childId, parentId)) {
-      throw new ChildNotFoundException();
-    }
+    ChildProfile child = children.findById(childId)
+        .filter(c -> c.parentId().equals(parentId))
+        .orElseThrow(ChildNotFoundException::new);
     String normalizedQuestion = question == null ? "" : question.trim();
     if (normalizedQuestion.isEmpty()) {
       throw new InvalidTutorQuestionException();
@@ -51,13 +53,14 @@ public class TutorService {
     TutorStrategy strategy = TutorStrategy.forAttempt(attempt);
 
     if (!ContentSafetyFilter.isSafe(normalizedQuestion)) {
-      return new TutorAnswer(strategy, safeRedirectMessage(), suggestedNextActivity(subject), true);
+      return new TutorAnswer(
+          strategy, safeRedirectMessage(), suggestedNextActivity(subject, child.gradeLevel()), true);
     }
 
     String explanation = aiClient
         .flatMap(client -> tryComplete(client, buildPrompt(strategy, subject, normalizedQuestion)))
         .orElseGet(() -> offlineExplanation(strategy, normalizedQuestion));
-    return new TutorAnswer(strategy, explanation, suggestedNextActivity(subject), false);
+    return new TutorAnswer(strategy, explanation, suggestedNextActivity(subject, child.gradeLevel()), false);
   }
 
   private Optional<String> tryComplete(AiTextClient client, String prompt) {
@@ -93,8 +96,8 @@ public class TutorService {
         + "reading instead - ask me about a number, a word, or a lesson you're working on!";
   }
 
-  private String suggestedNextActivity(String subject) {
-    List<LessonDefinition> lessons = catalog.all();
+  private String suggestedNextActivity(String subject, GradeLevel gradeLevel) {
+    List<LessonDefinition> lessons = catalog.forGrade(gradeLevel);
     return lessons.stream()
         .filter(lesson -> subject == null || lesson.subject().equalsIgnoreCase(subject))
         .findFirst()

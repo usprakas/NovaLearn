@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.novalearn.domain.catalog.Exercise;
 import com.novalearn.domain.catalog.LessonDefinition;
+import com.novalearn.domain.child.GradeLevel;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,8 +20,8 @@ class LessonCatalogServiceTest {
     LessonRepository lessons = mock(LessonRepository.class);
     ExerciseRepository exercises = mock(ExerciseRepository.class);
     when(lessons.findAll()).thenReturn(List.of(
-        new LessonDefinition("G1-SUB-01", "MATH", 3, "Subtracting within 10", "..."),
-        new LessonDefinition("G1-ADD-01", "MATH", 2, "Adding within 10", "...")));
+        new LessonDefinition("G1-SUB-01", "MATH", GradeLevel.GRADE_1, 3, "Subtracting within 10", "..."),
+        new LessonDefinition("G1-ADD-01", "MATH", GradeLevel.GRADE_1, 2, "Adding within 10", "...")));
     LessonCatalogService service = new LessonCatalogService(lessons, exercises);
 
     List<LessonDefinition> all = service.all();
@@ -29,10 +30,23 @@ class LessonCatalogServiceTest {
   }
 
   @Test
+  void filtersLessonsByGradeLevel() {
+    LessonRepository lessons = mock(LessonRepository.class);
+    ExerciseRepository exercises = mock(ExerciseRepository.class);
+    LessonDefinition grade2Lesson =
+        new LessonDefinition("G2-ADD-01", "MATH", GradeLevel.GRADE_2, 1, "Adding within 100", "...");
+    when(lessons.findByGradeLevel(GradeLevel.GRADE_2)).thenReturn(List.of(grade2Lesson));
+    LessonCatalogService service = new LessonCatalogService(lessons, exercises);
+
+    assertThat(service.forGrade(GradeLevel.GRADE_2)).containsExactly(grade2Lesson);
+  }
+
+  @Test
   void getsALessonByCode() {
     LessonRepository lessons = mock(LessonRepository.class);
     ExerciseRepository exercises = mock(ExerciseRepository.class);
-    LessonDefinition lesson = new LessonDefinition("G1-ADD-01", "MATH", 2, "Adding within 10", "...");
+    LessonDefinition lesson =
+        new LessonDefinition("G1-ADD-01", "MATH", GradeLevel.GRADE_1, 2, "Adding within 10", "...");
     when(lessons.findByCode("G1-ADD-01")).thenReturn(Optional.of(lesson));
     LessonCatalogService service = new LessonCatalogService(lessons, exercises);
 
@@ -64,7 +78,8 @@ class LessonCatalogServiceTest {
   void reportsTheSubjectForAKnownLessonCode() {
     LessonRepository lessons = mock(LessonRepository.class);
     ExerciseRepository exercises = mock(ExerciseRepository.class);
-    when(lessons.findByCode("G1-ADD-01")).thenReturn(Optional.of(new LessonDefinition("G1-ADD-01", "MATH", 2, "t", "d")));
+    when(lessons.findByCode("G1-ADD-01"))
+        .thenReturn(Optional.of(new LessonDefinition("G1-ADD-01", "MATH", GradeLevel.GRADE_1, 2, "t", "d")));
     LessonCatalogService service = new LessonCatalogService(lessons, exercises);
 
     assertThat(service.subjectOf("G1-ADD-01")).contains("MATH");

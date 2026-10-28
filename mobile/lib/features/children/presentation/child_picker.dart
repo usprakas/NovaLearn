@@ -110,6 +110,7 @@ class _ChildDialog extends StatefulWidget {
 class _ChildDialogState extends State<_ChildDialog> {
   final TextEditingController _name = TextEditingController();
   DateTime _birthDate = DateTime(2020, 1, 1);
+  String _gradeLevel = 'GRADE_1';
   @override
   void dispose() {
     _name.dispose();
@@ -136,7 +137,18 @@ class _ChildDialogState extends State<_ChildDialog> {
                   setState(() => _birthDate = date);
                 },
                 child: Text(
-                    'Birthday: ${_birthDate.toIso8601String().substring(0, 10)}'))
+                    'Birthday: ${_birthDate.toIso8601String().substring(0, 10)}')),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+                initialValue: _gradeLevel,
+                decoration: const InputDecoration(labelText: 'Grade'),
+                items: gradeLevels
+                    .map((String g) =>
+                        DropdownMenuItem<String>(value: g, child: Text(gradeLevelLabel(g))))
+                    .toList(),
+                onChanged: (String? value) {
+                  if (value != null) setState(() => _gradeLevel = value);
+                }),
           ]),
           actions: <Widget>[
             TextButton(
@@ -149,7 +161,9 @@ class _ChildDialogState extends State<_ChildDialog> {
                   final Child child = await widget.repository.createChild(
                       widget.token,
                       ChildDraft(
-                          displayName: _name.text, birthDate: _birthDate));
+                          displayName: _name.text,
+                          birthDate: _birthDate,
+                          gradeLevel: _gradeLevel));
                   if (!mounted) return;
                   navigator.pop(child);
                 },

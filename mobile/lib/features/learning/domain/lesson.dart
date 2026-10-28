@@ -2,6 +2,7 @@ class LessonSummary {
   const LessonSummary({
     required this.code,
     required this.subject,
+    required this.gradeLevel,
     required this.title,
     required this.description,
   });
@@ -9,12 +10,14 @@ class LessonSummary {
   factory LessonSummary.fromJson(Map<String, Object?> json) => LessonSummary(
         code: json['code']! as String,
         subject: json['subject']! as String,
+        gradeLevel: json['gradeLevel']! as String,
         title: json['title']! as String,
         description: json['description']! as String,
       );
 
   final String code;
   final String subject;
+  final String gradeLevel;
   final String title;
   final String description;
 }

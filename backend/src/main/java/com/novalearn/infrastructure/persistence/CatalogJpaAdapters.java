@@ -5,6 +5,7 @@ import com.novalearn.application.catalog.ExerciseRepository;
 import com.novalearn.application.catalog.LessonRepository;
 import com.novalearn.domain.catalog.Exercise;
 import com.novalearn.domain.catalog.LessonDefinition;
+import com.novalearn.domain.child.GradeLevel;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,12 +25,18 @@ class JpaLessonAdapter implements LessonRepository {
   }
 
   @Override
+  public List<LessonDefinition> findByGradeLevel(GradeLevel gradeLevel) {
+    return repo.findByGradeLevel(gradeLevel).stream().map(JpaLessonAdapter::map).toList();
+  }
+
+  @Override
   public Optional<LessonDefinition> findByCode(String code) {
     return repo.findByCode(code).map(JpaLessonAdapter::map);
   }
 
   private static LessonDefinition map(LessonEntity e) {
-    return new LessonDefinition(e.getCode(), e.getSubjectCode(), e.getOrder(), e.getTitle(), e.getDescription());
+    return new LessonDefinition(
+        e.getCode(), e.getSubjectCode(), e.getGradeLevel(), e.getOrder(), e.getTitle(), e.getDescription());
   }
 }
 

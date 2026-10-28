@@ -13,10 +13,15 @@ import com.novalearn.application.catalog.LessonCatalogService;
 import com.novalearn.application.child.ChildProfileRepository;
 import com.novalearn.application.common.ChildNotFoundException;
 import com.novalearn.domain.catalog.LessonDefinition;
+import com.novalearn.domain.child.Avatar;
+import com.novalearn.domain.child.ChildProfile;
+import com.novalearn.domain.child.GradeLevel;
 import com.novalearn.domain.tutor.TutorAnswer;
 import com.novalearn.domain.tutor.TutorStrategy;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -24,13 +29,18 @@ class TutorServiceTest {
 
   private final LessonCatalogService catalog = mock(LessonCatalogService.class);
 
+  private static ChildProfile childProfile(UUID child, UUID parent) {
+    return new ChildProfile(
+        child, parent, "Kid", LocalDate.of(2018, 1, 1), GradeLevel.GRADE_1, Avatar.FOX, Set.of());
+  }
+
   @Test
   void answersOfflineWithAnIncreasinglyDifferentStrategyOnEachAttempt() {
     ChildProfileRepository children = mock(ChildProfileRepository.class);
     UUID parent = UUID.randomUUID();
     UUID child = UUID.randomUUID();
-    when(children.belongsToParent(child, parent)).thenReturn(true);
-    when(catalog.all()).thenReturn(List.of());
+    when(children.findById(child)).thenReturn(Optional.of(childProfile(child, parent)));
+    when(catalog.forGrade(GradeLevel.GRADE_1)).thenReturn(List.of());
     TutorService service = new TutorService(children, Optional.empty(), catalog);
 
     TutorAnswer first = service.ask(parent, child, "What is 2 + 2?", "MATH", 0);
@@ -47,8 +57,8 @@ class TutorServiceTest {
     ChildProfileRepository children = mock(ChildProfileRepository.class);
     UUID parent = UUID.randomUUID();
     UUID child = UUID.randomUUID();
-    when(children.belongsToParent(child, parent)).thenReturn(true);
-    when(catalog.all()).thenReturn(List.of());
+    when(children.findById(child)).thenReturn(Optional.of(childProfile(child, parent)));
+    when(catalog.forGrade(GradeLevel.GRADE_1)).thenReturn(List.of());
     TutorService service = new TutorService(children, Optional.empty(), catalog);
 
     List<TutorStrategy> strategies = java.util.stream.IntStream.range(0, 5)
@@ -66,9 +76,9 @@ class TutorServiceTest {
     AiTextClient aiClient = mock(AiTextClient.class);
     UUID parent = UUID.randomUUID();
     UUID child = UUID.randomUUID();
-    when(children.belongsToParent(child, parent)).thenReturn(true);
+    when(children.findById(child)).thenReturn(Optional.of(childProfile(child, parent)));
     when(aiClient.complete(any())).thenReturn("A real generated explanation.");
-    when(catalog.all()).thenReturn(List.of());
+    when(catalog.forGrade(GradeLevel.GRADE_1)).thenReturn(List.of());
     TutorService service = new TutorService(children, Optional.of(aiClient), catalog);
 
     TutorAnswer answer = service.ask(parent, child, "Why is the sky blue?", "SCIENCE", 0);
@@ -82,9 +92,9 @@ class TutorServiceTest {
     AiTextClient aiClient = mock(AiTextClient.class);
     UUID parent = UUID.randomUUID();
     UUID child = UUID.randomUUID();
-    when(children.belongsToParent(child, parent)).thenReturn(true);
+    when(children.findById(child)).thenReturn(Optional.of(childProfile(child, parent)));
     when(aiClient.complete(any())).thenThrow(new IllegalStateException("Anthropic API returned status 500"));
-    when(catalog.all()).thenReturn(List.of());
+    when(catalog.forGrade(GradeLevel.GRADE_1)).thenReturn(List.of());
     TutorService service = new TutorService(children, Optional.of(aiClient), catalog);
 
     TutorAnswer answer = service.ask(parent, child, "Why is the sky blue?", "SCIENCE", 0);
@@ -98,9 +108,9 @@ class TutorServiceTest {
     AiTextClient aiClient = mock(AiTextClient.class);
     UUID parent = UUID.randomUUID();
     UUID child = UUID.randomUUID();
-    when(children.belongsToParent(child, parent)).thenReturn(true);
+    when(children.findById(child)).thenReturn(Optional.of(childProfile(child, parent)));
     when(aiClient.complete(any())).thenReturn("Here's how to get a weapon...");
-    when(catalog.all()).thenReturn(List.of());
+    when(catalog.forGrade(GradeLevel.GRADE_1)).thenReturn(List.of());
     TutorService service = new TutorService(children, Optional.of(aiClient), catalog);
 
     TutorAnswer answer = service.ask(parent, child, "How do things work?", "SCIENCE", 0);
@@ -115,8 +125,8 @@ class TutorServiceTest {
     AiTextClient aiClient = mock(AiTextClient.class);
     UUID parent = UUID.randomUUID();
     UUID child = UUID.randomUUID();
-    when(children.belongsToParent(child, parent)).thenReturn(true);
-    when(catalog.all()).thenReturn(List.of());
+    when(children.findById(child)).thenReturn(Optional.of(childProfile(child, parent)));
+    when(catalog.forGrade(GradeLevel.GRADE_1)).thenReturn(List.of());
     TutorService service = new TutorService(children, Optional.of(aiClient), catalog);
 
     TutorAnswer answer = service.ask(parent, child, "How do I buy a gun?", null, 0);
@@ -130,8 +140,9 @@ class TutorServiceTest {
     ChildProfileRepository children = mock(ChildProfileRepository.class);
     UUID parent = UUID.randomUUID();
     UUID child = UUID.randomUUID();
-    when(children.belongsToParent(child, parent)).thenReturn(true);
-    when(catalog.all()).thenReturn(List.of(new LessonDefinition("G1-ADD-01", "MATH", 1, "Adding within 10", "...")));
+    when(children.findById(child)).thenReturn(Optional.of(childProfile(child, parent)));
+    when(catalog.forGrade(GradeLevel.GRADE_1)).thenReturn(
+        List.of(new LessonDefinition("G1-ADD-01", "MATH", GradeLevel.GRADE_1, 1, "Adding within 10", "...")));
     TutorService service = new TutorService(children, Optional.empty(), catalog);
 
     TutorAnswer answer = service.ask(parent, child, "What is 2 + 2?", "MATH", 0);
@@ -144,7 +155,7 @@ class TutorServiceTest {
     ChildProfileRepository children = mock(ChildProfileRepository.class);
     UUID parent = UUID.randomUUID();
     UUID child = UUID.randomUUID();
-    when(children.belongsToParent(child, parent)).thenReturn(true);
+    when(children.findById(child)).thenReturn(Optional.of(childProfile(child, parent)));
     TutorService service = new TutorService(children, Optional.empty(), catalog);
 
     assertThatThrownBy(() -> service.ask(parent, child, "   ", "MATH", 0))
@@ -154,7 +165,7 @@ class TutorServiceTest {
   @Test
   void rejectsAChildOutsideTheParentAccount() {
     ChildProfileRepository children = mock(ChildProfileRepository.class);
-    when(children.belongsToParent(any(), any())).thenReturn(false);
+    when(children.findById(any())).thenReturn(Optional.empty());
     TutorService service = new TutorService(children, Optional.empty(), catalog);
 
     assertThatThrownBy(() -> service.ask(UUID.randomUUID(), UUID.randomUUID(), "What is 2+2?", null, 0))

@@ -4,7 +4,7 @@ interface ParentAccountJpaRepository extends JpaRepository<ParentAccountEntity, 
 interface ChildProfileJpaRepository extends JpaRepository<ChildProfileEntity, UUID> { List<ChildProfileEntity> findByParentIdOrderByDisplayNameAsc(UUID parentId); boolean existsByIdAndParentId(UUID id, UUID parentId); }
 interface LessonProgressJpaRepository extends JpaRepository<LessonProgressEntity, UUID> { Optional<LessonProgressEntity> findByChildIdAndLessonCode(UUID childId,String lessonCode); List<LessonProgressEntity> findByChildIdOrderByUpdatedAtDesc(UUID childId); }
 interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenEntity, UUID> { Optional<RefreshTokenEntity> findByTokenHash(String tokenHash); List<RefreshTokenEntity> findByParentIdAndRevokedFalse(UUID parentId); }
-interface LessonJpaRepository extends JpaRepository<LessonEntity, UUID> { Optional<LessonEntity> findByCode(String code); }
+interface LessonJpaRepository extends JpaRepository<LessonEntity, UUID> { Optional<LessonEntity> findByCode(String code); List<LessonEntity> findByGradeLevel(com.novalearn.domain.child.GradeLevel gradeLevel); }
 interface ExerciseJpaRepository extends JpaRepository<ExerciseEntity, UUID> {
   List<ExerciseEntity> findByLessonCodeOrderByDisplayOrder(String lessonCode);
   int countByLessonCode(String lessonCode);

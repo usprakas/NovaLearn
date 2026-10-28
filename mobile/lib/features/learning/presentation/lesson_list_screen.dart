@@ -32,11 +32,11 @@ class _LessonListTabState extends State<LessonListTab> {
   @override
   void initState() {
     super.initState();
-    _lessons = widget.lessonsRepository.lessons(widget.token);
+    _lessons = widget.lessonsRepository.lessons(widget.token, widget.child.id);
   }
 
-  void _reload() =>
-      setState(() => _lessons = widget.lessonsRepository.lessons(widget.token));
+  void _reload() => setState(
+      () => _lessons = widget.lessonsRepository.lessons(widget.token, widget.child.id));
 
   Future<void> _openLesson(LessonSummary summary) async {
     final Lesson lesson =

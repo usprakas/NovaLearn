@@ -110,9 +110,9 @@ class NovaLearnApi
   }
 
   @override
-  Future<List<LessonSummary>> lessons(String token) async {
+  Future<List<LessonSummary>> lessons(String token, String childId) async {
     final http.Response response = await _client.get(
-      _uri('/api/v1/lessons'),
+      _uri('/api/v1/children/$childId/lessons'),
       headers: _headers(token),
     );
     return _decodeList(response)
