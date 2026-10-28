@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/error_state.dart';
 import '../../children/domain/child.dart';
 import '../domain/exercise_repository.dart';
 import '../domain/lesson.dart';
@@ -34,6 +35,9 @@ class _LessonListTabState extends State<LessonListTab> {
     _lessons = widget.lessonsRepository.lessons(widget.token);
   }
 
+  void _reload() =>
+      setState(() => _lessons = widget.lessonsRepository.lessons(widget.token));
+
   Future<void> _openLesson(LessonSummary summary) async {
     final Lesson lesson =
         await widget.lessonsRepository.lesson(widget.token, summary.code);
@@ -55,10 +59,8 @@ class _LessonListTabState extends State<LessonListTab> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(
-              child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text('Could not load lessons: ${snapshot.error}')));
+          return ErrorState(
+              message: friendlyErrorMessage(snapshot.error!), onRetry: _reload);
         }
         final List<LessonSummary> lessons = snapshot.data ?? <LessonSummary>[];
         return ListView(padding: const EdgeInsets.all(24), children: <Widget>[

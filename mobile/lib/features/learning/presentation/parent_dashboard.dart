@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/error_state.dart';
 import '../../children/domain/child.dart';
 import '../../rewards/domain/badges_repository.dart';
 import '../../rewards/domain/child_badge.dart';
@@ -7,7 +8,7 @@ import '../domain/dashboard_repository.dart';
 import '../domain/progress.dart';
 import '../domain/progress_repository.dart';
 
-class ParentDashboard extends StatelessWidget {
+class ParentDashboard extends StatefulWidget {
   const ParentDashboard({
     super.key,
     required this.token,
@@ -23,23 +24,38 @@ class ParentDashboard extends StatelessWidget {
   final BadgesRepository badgesRepository;
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<
-      (ChildDashboard, List<LessonProgress>, List<ChildBadge>)>(
-      future: _load(),
-      builder: (BuildContext context,
-          AsyncSnapshot<(ChildDashboard, List<LessonProgress>, List<ChildBadge>)> snapshot) {
+  State<ParentDashboard> createState() => _ParentDashboardState();
+}
+
+typedef _DashboardData = (ChildDashboard, List<LessonProgress>, List<ChildBadge>);
+
+class _ParentDashboardState extends State<ParentDashboard> {
+  late Future<_DashboardData> _data;
+
+  @override
+  void initState() {
+    super.initState();
+    _data = _load();
+  }
+
+  void _reload() => setState(() => _data = _load());
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<_DashboardData>(
+      future: _data,
+      builder: (BuildContext context, AsyncSnapshot<_DashboardData> snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(
-              child: Text('Unable to load progress: ${snapshot.error}'));
+          return ErrorState(
+              message: friendlyErrorMessage(snapshot.error!), onRetry: _reload);
         }
         final ChildDashboard dashboard = snapshot.data!.$1;
         final List<LessonProgress> progress = snapshot.data!.$2;
         final List<ChildBadge> badges = snapshot.data!.$3;
         return ListView(padding: const EdgeInsets.all(24), children: <Widget>[
-          Text("${child.displayName}'s progress",
+          Text("${widget.child.displayName}'s progress",
               style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 24),
           Row(children: <Widget>[
@@ -55,7 +71,8 @@ class ParentDashboard extends StatelessWidget {
                     label: 'Average score',
                     value: '${dashboard.averageScore}%',
                     icon: Icons.trending_up_rounded,
-                    color: const Color(0xff16a34a))),
+                    // Same WCAG-corrected green as AppTheme.subjectColor's ENGLISH shade.
+                    color: const Color(0xff12883e))),
           ]),
           const SizedBox(height: 12),
           Row(children: <Widget>[
@@ -64,7 +81,9 @@ class ParentDashboard extends StatelessWidget {
                     label: 'Coins',
                     value: '${dashboard.coins}',
                     icon: Icons.stars_rounded,
-                    color: const Color(0xffd97706))),
+                    // Darkened from #d97706 — the original failed WCAG's 3:1 non-text
+                    // contrast threshold even directly against the page background (2.97:1).
+                    color: const Color(0xffb16105))),
             const SizedBox(width: 12),
             Expanded(
                 child: _Metric(
@@ -121,10 +140,13 @@ class ParentDashboard extends StatelessWidget {
         ]);
       });
 
-  Future<(ChildDashboard, List<LessonProgress>, List<ChildBadge>)> _load() async {
-    final ChildDashboard dashboard = await dashboardRepository.dashboard(token, child.id);
-    final List<LessonProgress> progress = await progressRepository.progress(token, child.id);
-    final List<ChildBadge> badges = await badgesRepository.badges(token, child.id);
+  Future<_DashboardData> _load() async {
+    final ChildDashboard dashboard =
+        await widget.dashboardRepository.dashboard(widget.token, widget.child.id);
+    final List<LessonProgress> progress =
+        await widget.progressRepository.progress(widget.token, widget.child.id);
+    final List<ChildBadge> badges =
+        await widget.badgesRepository.badges(widget.token, widget.child.id);
     return (dashboard, progress, badges);
   }
 }
@@ -139,20 +161,28 @@ class _Metric extends StatelessWidget {
   Widget build(BuildContext context) => Card(
       child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
-                    child: Icon(icon, size: 18, color: color)),
-                const SizedBox(height: 10),
-                Text(value, style: Theme.of(context).textTheme.headlineSmall),
-                Text(label,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-              ])));
+          // Merges the value+label into one phrase for a screen reader ("25 Coins") instead of
+          // two disconnected stops ("25" ... "Coins") in traversal order — the icon stays
+          // unlabeled since it's decorative and the label already says what the number means.
+          child: Semantics(
+              label: '$value $label',
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+                        child: Icon(icon, size: 18, color: color)),
+                    const SizedBox(height: 10),
+                    ExcludeSemantics(
+                        child: Text(value, style: Theme.of(context).textTheme.headlineSmall)),
+                    ExcludeSemantics(
+                        child: Text(label,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant))),
+                  ]))));
 }

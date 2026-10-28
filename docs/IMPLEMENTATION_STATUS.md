@@ -1,9 +1,19 @@
 # Implementation Status
 
-Last updated: this session (Phase 4 "AI tutor hardening" + Phase 5 "Parent dashboard and
-hardening" + Phase 6 "plan only", following the Phase 2/3 session before it).
+Last updated: a follow-up session after Phase 4/5/6 (below), covering: two real bugs found by
+actually running the app live for the first time (a `setState`/Future crash, and a Hibernate
+lazy-loading bug masking as a 403 on every lesson-detail request); a visual polish pass; a
+Gemini AI provider adapter (alongside Anthropic) plus fixes for JSON-escaping and truncation
+bugs found testing it live; Phase 6 speech-to-text/TTS (explicitly requested, built, and
+verified live); initial App Store/Play Store submission groundwork (see
+`docs/APP_STORE_PREP.md`); and a finishing pass — a mobile account-deletion screen, friendlier
+error states with retry across the app, and a real (code-level) accessibility pass that found
+and fixed two WCAG contrast failures and a complete absence of dark-theme support.
 
-## What exists coming into this session
+Backend: 73 unit tests passing. Mobile: 10 tests passing, `flutter analyze` 0 issues. All work
+committed and pushed to `github.com/usprakas/NovaLearn`.
+
+## What exists coming into the Phase 4/5/6 session (earlier in this project)
 
 Phases 0–3 complete. 58 backend unit tests, 9 mobile tests, both green coming in. The AI tutor and
 homework helper existed but had no content safety filter, only 3 of 5 strategies, no per-child

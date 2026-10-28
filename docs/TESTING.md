@@ -38,13 +38,13 @@ embedded Redis instance; not added without checking scope with the project owner
 cd mobile
 flutter pub get
 flutter analyze   # 0 issues
-flutter test      # 9 tests, all passing
+flutter test      # 10 tests, all passing
 ```
 
 | Test file | Covers |
 | --- | --- |
 | `lesson_test.dart` | `Lesson`/`Exercise` JSON parsing (no answer index) and `ExerciseEvaluation` parsing (hint present only when incorrect) — replaces `lesson_attempt_test.dart`, whose `LessonAttempt` client-side scoring logic no longer exists now that grading is server-side |
-| `novalearn_api_test.dart` | API client request shapes for register/refresh/submit-answer, and error-to-exception mapping |
+| `novalearn_api_test.dart` | API client request shapes for register/refresh/submit-answer/delete-account, and error-to-exception mapping |
 | `widget_test.dart` | The sign-in screen renders and the register/sign-in toggle works, with `AuthScreen` wrapped in a `ProviderScope` overriding `sessionControllerProvider` with fakes (a real `SessionController` backed by a fake `AuthRepository` and an inert `SessionStore` subclass, so the test never touches the unavailable-under-test `flutter_secure_storage` platform channel) |
 
 ## What is not tested or verified here
@@ -65,10 +65,12 @@ flutter test      # 9 tests, all passing
 - The content safety filter's denylist check against a *real* AI response is unit-tested with a
   mocked `AiTextClient` returning deliberately-unsafe text, not against actual Anthropic output —
   no API key is provisioned in this environment (see RISKS_AND_TRADEOFFS.md).
-- Mobile has no test for the new dashboard "recommended next" card or the tutor screen's
-  refusal/suggestion UI beyond what the existing `flutter analyze`/widget tests already cover
-  indirectly through the unchanged `AuthScreen` flow — these were verified by `flutter analyze`
-  (0 issues) and the full `flutter test` suite (9 tests, unchanged in count), not by a dedicated
-  widget test for the new UI states, and not on a real device/emulator.
-- Phase 6 items (OCR, speech-to-text/TTS, AWS deployment, teacher dashboard, billing) are a plan
-  only — see `docs/PHASE_6_PLAN.md` — nothing there has been built or tested.
+- Mobile has no dedicated widget test for the dashboard "recommended next" card, the tutor
+  screen's refusal/suggestion UI, the voice input/output flow, or the account-deletion dialog —
+  these were verified by `flutter analyze` (0 issues), the full `flutter test` suite, and live
+  manual runs in Chrome against a real backend during this session, not by a dedicated widget
+  test for each new UI state, and not on a real mobile device/emulator.
+- Phase 6 items (OCR, AWS deployment, teacher dashboard, billing) are a plan only — see
+  `docs/PHASE_6_PLAN.md` — nothing there has been built or tested. Speech-to-text/TTS is the one
+  Phase 6 item that *has* shipped (see DEVELOPMENT_PLAN.md Phase 6), verified live in Chrome via
+  the Web Speech API, but never on a real iOS/Android device.

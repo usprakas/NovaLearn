@@ -43,6 +43,17 @@ class SessionController extends StateNotifier<AsyncValue<Session?>> {
     await _store.clear();
     state = const AsyncValue.data(null);
   }
+
+  /// Permanently deletes the account server-side (re-confirming the password), then signs out
+  /// locally. Lets the server's exception (e.g. a wrong password) propagate to the caller so the
+  /// screen can show it, rather than silently clearing the local session on failure.
+  Future<void> deleteAccount(String password) async {
+    final Session? current = state.value;
+    if (current == null) return;
+    await _auth.deleteAccount(current.accessToken, password);
+    await _store.clear();
+    state = const AsyncValue.data(null);
+  }
 }
 
 final sessionControllerProvider = StateNotifierProvider<SessionController, AsyncValue<Session?>>(

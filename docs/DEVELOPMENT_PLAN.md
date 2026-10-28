@@ -82,20 +82,35 @@ deliberate minimal-footprint choice, not every new backend capability needed its
 | --- | --- |
 | Weekly summary, strongest/weakest subject, coins/streak/badges | ✅ pre-existing, unchanged |
 | Recommended-next-activity field | ✅ `recommendedNextLessonCode`/`Title` — first incomplete catalog lesson, in display order |
-| Account deletion | ✅ `DELETE /api/v1/auth/me`, password-reconfirmed, cascades to all child data at the DB level; **backend only — no mobile UI calls it yet** |
+| Account deletion | ✅ `DELETE /api/v1/auth/me`, password-reconfirmed, cascades to all child data at the DB level, **and a mobile Account screen (password-confirm dialog, danger-zone styling) that calls it** |
 | Correlation-ID request logging | ✅ `CorrelationIdFilter`, echoed in `X-Correlation-Id` |
-| Broader error-handling/logging pass | 🟡 the correlation-ID filter is the logging addition this pass made; no broader audit of every error path was done beyond what already existed |
-| Accessibility pass | 🟡 documented rather than newly built — see "Mobile accessibility" in RISKS_AND_TRADEOFFS.md for exactly what is and isn't true today, and why a real pass needs a device this environment doesn't have |
+| Broader error-handling/logging pass | ✅ every `FutureBuilder` error branch across the app (lesson list, dashboard, child picker, tutor, homework, session restore) now shows a friendly message plus a retry action instead of a bare stack-trace-adjacent string — see `core/widgets/error_state.dart` |
+| Accessibility pass | ✅ a real code-level pass, not just documentation: found and fixed two genuine WCAG non-text-contrast failures (the green subject icon and amber coin icon both measured under 3:1 against their own tinted backgrounds — recalculated and replaced), found and fixed that the app had no dark-theme/`themeMode` wiring at all (always rendered light regardless of the system setting), confirmed every interactive control has a tooltip/semantic label, and merged the dashboard metric cards' value+label into one screen-reader phrase. Still not done: an actual screen-reader (VoiceOver/TalkBack) walkthrough on a physical device — Chrome's accessibility tree isn't the same surface. |
 | Performance pass | ⬜ not done — no load testing or query-plan review was performed; out of scope without real traffic patterns to test against |
 
-## Phase 6 — Future extensions — ⬜ not started; a plan was written per the master spec's own instruction
+## Phase 6 — Future extensions — 🟡 one item shipped on explicit request; the rest is a written plan
 
-Homework OCR, speech-to-text/text-to-speech, additional subjects/grades, a teacher dashboard,
-subscription billing, and AWS infrastructure-as-code. A separate implementation plan (not code) was
-written at `docs/PHASE_6_PLAN.md`, as the master spec itself asks for Phase 6 specifically — a
-plan, not an implementation — and because every item needs a real external credential, cloud
-account, or device this environment doesn't have. See also `infrastructure/README.md`. Do not
-start building any of it until explicitly asked.
+Homework OCR, additional subjects/grades, a teacher dashboard, subscription billing, and AWS
+infrastructure-as-code are a plan only (`docs/PHASE_6_PLAN.md`), per the master spec's own
+instruction to propose rather than build Phase 6, and because every one of those needs a real
+external credential, cloud account, or device this environment doesn't have. See also
+`infrastructure/README.md`.
+
+**Speech-to-text / text-to-speech was explicitly requested and built** — the plan had already
+flagged this as the one Phase 6 item not blocked by a missing credential (on-device packages,
+or the browser's Web Speech API on web). A shared `VoiceAssistant` helper
+(`core/voice/voice_assistant.dart`) wraps `speech_to_text`/`flutter_tts`; a mic button in the
+tutor/homework question fields fills the text by voice, and a speaker button reads an answer
+aloud. Verified live against a real backend in Chrome — not yet run on an actual iOS/Android
+device. Required platform permissions were added
+(`RECORD_AUDIO` on Android, `NSMicrophoneUsageDescription`/`NSSpeechRecognitionUsageDescription`
+on iOS) even though they couldn't be exercised here.
+
+**A second AI provider adapter (Gemini) was also added**, alongside Anthropic, once a real
+(free-tier) Gemini key became available mid-session — not originally part of the Phase 6 plan,
+but a natural extension of the existing provider-independent `AiTextClient` port. See
+`docs/RISKS_AND_TRADEOFFS.md` for the real trade-off this comes with (free-tier content is used
+to improve Google's products).
 
 ## Recorded assumptions (per "use defaults, record assumptions" instruction)
 

@@ -85,21 +85,39 @@ alternative — see "Known limitations" below for the data-use trade-off that co
   This caught real syntax issues during authoring (see TESTING.md) but is not equivalent to the
   Testcontainers-based `PostgresIntegrationTest` CI runs with real Postgres.
 
-## Mobile accessibility — what exists today, honestly assessed
+## Mobile accessibility — what's been done and what still needs a real device
 
-No dedicated accessibility pass (screen-reader audit, contrast check, dynamic-text-size testing on
-a real device) was done, because there is no device/emulator in this environment to verify one on
-— adding `Semantics` widgets or contrast tweaks with no way to confirm they help would be guessing,
-not an accessibility pass. What is true today without any new code: every icon-bearing control in
-the mobile app already carries a text label a screen reader can announce — the bottom
-`NavigationDestination`s (`Learn`/`Tutor`/`Homework`/`Progress`) each have a `label` alongside
-their icon, and the one icon-only button in the app (sign-out, in `home_screen.dart`) has a
-`tooltip`, which Flutter's Material `IconButton` surfaces as its accessibility label automatically.
-There is no icon-only, unlabeled control anywhere in the app today. This is reported as "an
-existing pattern that happens to be reasonably accessible," not as evidence of a completed
-accessibility review — a real pass (VoiceOver/TalkBack walkthrough, color-contrast check against
-WCAG AA, text scaling up to at least 200%) still needs a real device and is listed under "What I'd
-do with more time" below.
+A real code-level pass was done once Chrome became available to actually run the app in (earlier
+passes were blocked on having no device/emulator at all; this one still can't drive a real
+screen reader, since Chrome's accessibility tree isn't VoiceOver/TalkBack, but contrast,
+semantics, and theming are all verifiable statically and were checked for real, not assumed).
+
+**Found and fixed:**
+- **Two genuine WCAG 1.4.11 non-text-contrast failures.** The dashboard's green "average score"
+  icon and amber "coins" icon were both measured (computed WCAG contrast ratio, not eyeballed)
+  below the required 3:1 against their own tinted icon-circle backgrounds — 2.62:1 and 2.55:1
+  respectively, with the amber also failing directly against the plain page background at
+  2.97:1. Both replaced with darker same-hue shades (`#12883e`, `#b16105`) verified at 3.4:1+ in
+  every combination checked (light/dark, tinted-circle/direct-background).
+- **No dark theme at all.** `MaterialApp` had no `darkTheme` or `themeMode` set, so the app
+  rendered in light mode unconditionally regardless of the device's system setting — not a
+  cosmetic gap, since some users rely on dark mode for light sensitivity. `AppTheme.dark()` now
+  exists (same seed color, `Brightness.dark`) and `themeMode: ThemeMode.system` wires it in.
+- **Dashboard metric cards announced as two disconnected screen-reader stops** ("25" ... "Coins"
+  in traversal order) instead of one phrase. Wrapped in `Semantics(label: '$value $label')` with
+  the inner `Text` widgets excluded from semantics so they don't also announce separately.
+
+**Confirmed already true, not newly built:** every icon-bearing control already carries a text
+label — the bottom `NavigationDestination`s have a `label` alongside their icon, and every
+icon-only `IconButton` in the app (account, voice input, read-aloud ×2) has a `tooltip`, which
+Flutter surfaces as the accessibility label automatically. No `GestureDetector`/`InkWell` is used
+anywhere without Material's built-in semantics. No text-scaling override exists anywhere, so the
+app respects the system font-size setting by default.
+
+**Still not done:** an actual VoiceOver/TalkBack walkthrough on a physical device or simulator —
+static analysis catches contrast and missing labels, but not how a real screen reader's focus
+order and gesture navigation actually feel to use. Listed under "What I'd do with more time"
+below.
 
 ## Failure scenarios and how the system responds
 
@@ -141,6 +159,5 @@ do with more time" below.
   signal.
 - Build the teacher dashboard and the Year 2/3 roadmap items once the family-facing MVP has real
   usage data to justify them.
-- Run a real accessibility pass (VoiceOver/TalkBack walkthrough, WCAG AA contrast check, dynamic
-  text scaling) on a physical device or simulator once one is available — see the mobile
-  accessibility note above for what's already true without one.
+- Run an actual VoiceOver/TalkBack walkthrough on a physical device or simulator — the
+  code-level contrast/semantics/dark-mode pass above closes what's checkable without one.

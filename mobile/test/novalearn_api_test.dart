@@ -78,6 +78,20 @@ void main() {
     expect(evaluation.correct, isTrue);
   });
 
+  test('deletes the account against the versioned API endpoint with the auth header', () async {
+    final MockClient client = MockClient((http.Request request) async {
+      expect(request.method, 'DELETE');
+      expect(request.url.path, '/api/v1/auth/me');
+      expect(request.headers['Authorization'], 'Bearer token');
+      expect(jsonDecode(request.body), <String, String>{'password': 'A secure password'});
+      return http.Response('', 204);
+    });
+    final NovaLearnApi api =
+        NovaLearnApi(client: client, baseUrl: 'https://api.example.test');
+
+    await api.deleteAccount('token', 'A secure password');
+  });
+
   test('converts API errors into a display-safe exception', () async {
     final NovaLearnApi api = NovaLearnApi(
       baseUrl: 'https://api.example.test',

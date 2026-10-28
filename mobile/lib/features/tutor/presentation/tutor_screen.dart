@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/voice/voice_assistant.dart';
+import '../../../core/widgets/error_state.dart';
 import '../../children/domain/child.dart';
 import '../domain/tutor_answer.dart';
 import '../domain/tutor_repository.dart';
@@ -92,7 +93,7 @@ class _TutorTabState extends State<TutorTab> {
       });
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = 'NovaLearn could not answer right now: $error');
+      setState(() => _error = friendlyErrorMessage(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

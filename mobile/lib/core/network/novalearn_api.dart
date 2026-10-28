@@ -68,6 +68,16 @@ class NovaLearnApi
   }
 
   @override
+  Future<void> deleteAccount(String accessToken, String password) async {
+    final http.Response response = await _client.delete(
+      _uri('/api/v1/auth/me'),
+      headers: _headers(accessToken),
+      body: jsonEncode(<String, String>{'password': password}),
+    );
+    _ensureSuccess(response);
+  }
+
+  @override
   Future<List<Child>> children(String token) async {
     final http.Response response = await _client.get(
       _uri('/api/v1/children'),

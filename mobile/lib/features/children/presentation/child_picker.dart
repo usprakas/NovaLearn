@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/error_state.dart';
 import '../domain/child.dart';
 import '../domain/children_repository.dart';
 
@@ -36,11 +37,8 @@ class _ChildPickerState extends State<ChildPicker> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(
-              child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                      'We could not load child profiles. ${snapshot.error}')));
+          return ErrorState(
+              message: friendlyErrorMessage(snapshot.error!), onRetry: _reload);
         }
         final List<Child> children = snapshot.data ?? <Child>[];
         if (children.isEmpty) {

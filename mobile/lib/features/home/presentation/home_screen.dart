@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers.dart';
 import '../../../core/security/session_store.dart';
-import '../../auth/application/session_controller.dart';
+import '../../auth/presentation/account_settings_screen.dart';
 import '../../children/domain/child.dart';
 import '../../children/presentation/child_picker.dart';
 import '../../homework/presentation/homework_screen.dart';
@@ -27,9 +27,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('NovaLearn'), actions: <Widget>[
         IconButton(
-            tooltip: 'Sign out',
-            onPressed: () => ref.read(sessionControllerProvider.notifier).signOut(),
-            icon: const Icon(Icons.logout))
+            tooltip: 'Account',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => AccountSettingsScreen(session: widget.session))),
+            icon: const Icon(Icons.account_circle_outlined))
       ]),
       body: ChildPicker(
         token: widget.session.accessToken,

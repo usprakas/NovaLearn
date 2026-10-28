@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/voice/voice_assistant.dart';
+import '../../../core/widgets/error_state.dart';
 import '../../children/domain/child.dart';
 import '../domain/homework_guidance.dart';
 import '../domain/homework_repository.dart';
@@ -87,7 +88,7 @@ class _HomeworkTabState extends State<HomeworkTab> {
       setState(() => _guidance = guidance);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = 'NovaLearn could not help right now: $error');
+      setState(() => _error = friendlyErrorMessage(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

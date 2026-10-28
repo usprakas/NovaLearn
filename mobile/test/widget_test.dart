@@ -21,6 +21,9 @@ class _StubAuthRepository implements AuthRepository {
 
   @override
   Future<void> logout(String refreshToken) async {}
+
+  @override
+  Future<void> deleteAccount(String accessToken, String password) async {}
 }
 
 /// Avoids touching the real `flutter_secure_storage` platform channel, which is unavailable
