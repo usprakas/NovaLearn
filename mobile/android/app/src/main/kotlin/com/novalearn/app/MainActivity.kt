@@ -1,4 +1,4 @@
-package com.example.novalearn_mobile
+package com.novalearn.app
 
 import io.flutter.embedding.android.FlutterActivity
 

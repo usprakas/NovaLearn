@@ -2,7 +2,7 @@
     <!-- Required by speech_to_text for the tutor/homework voice-input mic button. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
-        android:label="novalearn_mobile"
+        android:label="NovaLearn"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.novalearn_mobile"
+    namespace = "com.novalearn.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -15,10 +15,10 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.novalearn_mobile"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        // Placeholder reverse-domain ID — confirm/change this once a real publishing
+        // domain/organization is settled, before the first real Play Console upload
+        // (changing it afterward means a new app listing, not a rename).
+        applicationId = "com.novalearn.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
