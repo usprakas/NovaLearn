@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/shape_icon.dart';
 import '../../children/domain/child.dart';
 import '../domain/exercise_evaluation.dart';
 import '../domain/exercise_repository.dart';
@@ -100,6 +101,10 @@ class _LessonScreenState extends State<LessonScreen> {
                             child: Column(
                                 children: List<Widget>.generate(_current.choices.length, (int choice) {
                               final bool selected = _selectedChoice == choice;
+                              final ParsedShapeChoice? shape =
+                                  parseShapeChoice(_current.choices[choice]);
+                              final TextStyle labelStyle = TextStyle(
+                                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500);
                               return Padding(
                                   padding: const EdgeInsets.only(top: 8),
                                   child: Material(
@@ -110,11 +115,13 @@ class _LessonScreenState extends State<LessonScreen> {
                                       child: RadioListTile<int>(
                                           shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(14)),
-                                          title: Text(_current.choices[choice],
-                                              style: TextStyle(
-                                                  fontWeight: selected
-                                                      ? FontWeight.w700
-                                                      : FontWeight.w500)),
+                                          title: shape == null
+                                              ? Text(_current.choices[choice], style: labelStyle)
+                                              : Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+                                                  ShapeIcon(shapeKey: shape.shapeKey, color: scheme.primary),
+                                                  const SizedBox(width: 12),
+                                                  Text(shape.label, style: labelStyle),
+                                                ]),
                                           value: choice)));
                             })))
                       ]))),
