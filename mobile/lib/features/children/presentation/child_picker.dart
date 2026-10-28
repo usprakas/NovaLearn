@@ -18,6 +18,8 @@ class ChildPicker extends StatefulWidget {
 
 class _ChildPickerState extends State<ChildPicker> {
   late Future<List<Child>> _children;
+  String? _selectedChildId;
+
   @override
   void initState() {
     super.initState();
@@ -26,9 +28,20 @@ class _ChildPickerState extends State<ChildPicker> {
 
   Future<List<Child>> _load() =>
       widget.childrenRepository.children(widget.token);
-  void _reload() => setState(() {
+
+  void _reload({String? selectChildId}) => setState(() {
         _children = _load();
+        if (selectChildId != null) _selectedChildId = selectChildId;
       });
+
+  Future<void> _addChild(BuildContext context) async {
+    final Child? result = await showDialog<Child>(
+        context: context,
+        builder: (_) =>
+            _ChildDialog(token: widget.token, repository: widget.childrenRepository));
+    if (result != null) _reload(selectChildId: result.id);
+  }
+
   @override
   Widget build(BuildContext context) => FutureBuilder<List<Child>>(
       future: _children,
@@ -47,8 +60,92 @@ class _ChildPickerState extends State<ChildPicker> {
               repository: widget.childrenRepository,
               onCreated: _reload);
         }
-        return widget.builder(context, children.first, _reload);
+        final Child active = children.firstWhere(
+            (Child c) => c.id == _selectedChildId,
+            orElse: () => children.first);
+        return Column(children: <Widget>[
+          _ChildSwitcherBar(
+              children: children,
+              active: active,
+              onSelect: (String id) => setState(() => _selectedChildId = id),
+              onAddChild: () => _addChild(context)),
+          Expanded(child: widget.builder(context, active, _reload)),
+        ]);
       });
+}
+
+/// A slim header, shown above every tab, naming the active child with a way to switch between
+/// siblings (when there's more than one) and to add another — the only entry point for a second
+/// child, since the full-screen "add your child" prompt only ever shows when the list is empty.
+class _ChildSwitcherBar extends StatelessWidget {
+  const _ChildSwitcherBar(
+      {required this.children,
+      required this.active,
+      required this.onSelect,
+      required this.onAddChild});
+  final List<Child> children;
+  final Child active;
+  final ValueChanged<String> onSelect;
+  final VoidCallback onAddChild;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    return Material(
+        color: scheme.surfaceContainerLow,
+        child: SafeArea(
+            bottom: false,
+            child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(children: <Widget>[
+                  Expanded(
+                      child: children.length > 1
+                          ? PopupMenuButton<String>(
+                              tooltip: 'Switch child',
+                              onSelected: onSelect,
+                              itemBuilder: (BuildContext context) => children
+                                  .map((Child c) => PopupMenuItem<String>(
+                                      value: c.id,
+                                      child: Row(children: <Widget>[
+                                        if (c.id == active.id)
+                                          Icon(Icons.check, size: 18, color: scheme.primary)
+                                        else
+                                          const SizedBox(width: 18),
+                                        const SizedBox(width: 8),
+                                        Text(c.displayName),
+                                      ])))
+                                  .toList(),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+                                CircleAvatar(
+                                    radius: 14,
+                                    backgroundColor: scheme.primaryContainer,
+                                    child: Text(active.displayName.substring(0, 1).toUpperCase(),
+                                        style: TextStyle(color: scheme.onPrimaryContainer))),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                    child: Text(active.displayName,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context).textTheme.titleMedium)),
+                                const Icon(Icons.expand_more),
+                              ]))
+                          : Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+                              CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: scheme.primaryContainer,
+                                  child: Text(active.displayName.substring(0, 1).toUpperCase(),
+                                      style: TextStyle(color: scheme.onPrimaryContainer))),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                  child: Text(active.displayName,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context).textTheme.titleMedium)),
+                            ])),
+                  IconButton(
+                      tooltip: 'Add another child',
+                      onPressed: onAddChild,
+                      icon: const Icon(Icons.person_add_alt_1_outlined)),
+                ]))));
+  }
 }
 
 class _NewChildPrompt extends StatelessWidget {
