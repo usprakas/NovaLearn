@@ -37,7 +37,7 @@ requests/minute/IP via Redis; fails open if Redis is unreachable). Note: `/auth/
 | GET | `/children` | — | 200, list of the above, ordered by display name |
 
 `gradeLevel`/`avatar`/`learningPreferences` are optional — omitting them defaults to `GRADE_1` /
-`FOX` / `[]`. Valid enum values: `gradeLevel` ∈ `{PRE_K, KINDERGARTEN, GRADE_1, GRADE_2, GRADE_3}`;
+`FOX` / `[]`. Valid enum values: `gradeLevel` ∈ `{PRE_K, KINDERGARTEN, GRADE_1, GRADE_2, GRADE_3, GRADE_4, GRADE_5, GRADE_6}`;
 `avatar` ∈ `{FOX, OWL, ROBOT, ASTRONAUT, DRAGON}`; `learningPreferences` ⊆ `{VISUAL, AUDITORY,
 STORY, GAMES, REPETITION}`.
 
@@ -45,12 +45,24 @@ STORY, GAMES, REPETITION}`.
 
 | Method | Path | Response |
 | --- | --- | --- |
-| GET | `/lessons` | 200, `[{code, subject, order, title, description}]` |
+| GET | `/children/{childId}/lessons` | 200, `[{code, subject, gradeLevel, order, title, description}]` — only lessons at the child's own grade level |
 | GET | `/lessons/{code}` | 200, `{code, subject, title, description, exercises: [{id, order, prompt, choices}]}`; 404 if unknown |
+
+**The list endpoint is child-scoped, not a bare catalog browse.** It used to be
+`GET /api/v1/lessons` with no child context and no grade filtering at all — every child saw every
+lesson regardless of age. Now it requires the token's parent to own `{childId}` (404 otherwise,
+same `ChildNotFoundException` pattern as every other child-scoped endpoint) and returns only
+lessons matching that child's `gradeLevel`. Lesson **detail** stays at the old ungated
+`/lessons/{code}` path — a child only ever reaches it via a code from their own already-filtered
+list, so there's no real exposure in leaving it open.
 
 **`exercises` carries no answer-index field** — grading happens server-side (see "Exercise
 evaluation" below). This is a Phase 2 change: the catalog used to embed `questions` with an
 `answerIndex` the client graded itself; that shape no longer exists.
+
+**Curriculum coverage**: Math and English, PRE_K through GRADE_6 (Grade 1 has 5 lessons from the
+original MVP; every other grade has 17 — 9 Math + 8 English). See
+`docs/DATABASE_DESIGN.md` → "Curriculum scope".
 
 ## Exercise evaluation
 

@@ -6,11 +6,17 @@ lazy-loading bug masking as a 403 on every lesson-detail request); a visual poli
 Gemini AI provider adapter (alongside Anthropic) plus fixes for JSON-escaping and truncation
 bugs found testing it live; Phase 6 speech-to-text/TTS (explicitly requested, built, and
 verified live); initial App Store/Play Store submission groundwork (see
-`docs/APP_STORE_PREP.md`); and a finishing pass — a mobile account-deletion screen, friendlier
-error states with retry across the app, and a real (code-level) accessibility pass that found
-and fixed two WCAG contrast failures and a complete absence of dark-theme support.
+`docs/APP_STORE_PREP.md`); a finishing pass (mobile account-deletion screen, friendlier error
+states with retry, a real code-level accessibility pass that found and fixed two WCAG contrast
+failures and a complete absence of dark-theme support); and — the largest single piece of this
+session — a **multi-grade curriculum expansion explicitly requested by the user, beyond the
+master spec's original Grade-1-Math-only MVP scope**: the catalog now covers Pre-K through
+Grade 6 in both Math and English (17 lessons/grade except Grade 1's original 5), with a real
+per-child grade filter that didn't exist before (every child used to see every lesson regardless
+of age). See "Multi-grade curriculum expansion" in `docs/DEVELOPMENT_PLAN.md` for the full
+picture, including what was and wasn't verified.
 
-Backend: 73 unit tests passing. Mobile: 10 tests passing, `flutter analyze` 0 issues. All work
+Backend: 74 unit tests passing. Mobile: 10 tests passing, `flutter analyze` 0 issues. All work
 committed and pushed to `github.com/usprakas/NovaLearn`.
 
 ## What exists coming into the Phase 4/5/6 session (earlier in this project)

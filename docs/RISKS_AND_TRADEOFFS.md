@@ -20,7 +20,7 @@ alternative — see "Known limitations" below for the data-use trade-off that co
 | Parent auth, child profiles, lesson progress | Real, tested |
 | Rotating, hashed refresh tokens + logout | Real, tested (`AuthServiceTest`) — see ARCHITECTURE.md |
 | Redis-backed rate limiting on auth endpoints | Real; fails open if Redis is unreachable; not covered by an automated test (would need a real or embedded Redis) |
-| Lesson catalog (5 Math lessons, DB-backed) | Real; promoted from in-code to `lessons`/`exercises` tables once exercises needed server-side-only identities — see DATABASE_DESIGN.md |
+| Lesson catalog (Math + English, PRE_K-GRADE_6) | Real, DB-backed, grade-filtered per child — originally 5 Grade 1 Math lessons only; expanded on explicit request to 7 more grade batches (17 lessons/grade). Curriculum content has engineering judgment behind it but **no elementary-education subject-matter review** — see PHASE_6_PLAN.md item 3 |
 | **Server-side exercise grading** | Real: the answer index is never serialized to the client; `ExerciseEvaluationService` is the only code path that ever reads it |
 | Gamification: coins (ledger), streaks, badges | Real, persisted, tested, including day-boundary streak logic and idempotent award-on-retry |
 | Parent dashboard aggregation | Real, computed from live progress + rewards data |

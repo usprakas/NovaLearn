@@ -37,9 +37,11 @@ Redis or an embedded one).
 | Badges | ✅ two fixed badges (`FIRST_STEPS`, `FIVE_DAY_STREAK`), evaluated automatically after every award |
 | Integration tests for the complete learning flow | 🟡 thorough unit tests across every new service (`ExerciseEvaluationServiceTest`, `ProgressServiceTest`, `RewardsServiceTest`, `BadgeServiceTest`), but no single Testcontainers-backed end-to-end test exercising the real database — would need Docker, unavailable here |
 
-Curriculum content was narrowed to exactly the five Math topics the master spec names (Counting,
-Addition, Subtraction, Comparison, Word Problems) rather than carrying forward the pre-spec
-session's English lessons — see "Curriculum scope" in DATABASE_DESIGN.md.
+Curriculum content was originally narrowed to exactly the five Math topics the master spec names
+(Counting, Addition, Subtraction, Comparison, Word Problems), Grade 1 only. **That scope was later
+explicitly expanded by the user**, beyond the master spec's original MVP boundary, to cover every
+grade from Pre-K through Grade 6, in both Math and English — see "Multi-grade curriculum
+expansion" below and "Curriculum scope" in DATABASE_DESIGN.md.
 
 **The client-submittable progress endpoint was removed, not just supplemented.**
 `PUT /children/{id}/progress/{lessonCode}` let a client set its own score/completion with zero
@@ -111,6 +113,44 @@ on iOS) even though they couldn't be exercised here.
 but a natural extension of the existing provider-independent `AiTextClient` port. See
 `docs/RISKS_AND_TRADEOFFS.md` for the real trade-off this comes with (free-tier content is used
 to improve Google's products).
+
+## Multi-grade curriculum expansion — ✅ done, beyond the master spec's original MVP scope
+
+The master spec scoped the MVP to Grade 1 Math only. The user later explicitly asked to expand
+this to every grade from Pre-K through Grade 6, in both Math and English — a deliberate,
+requested scope change, not a reinterpretation of the original spec.
+
+**Architecture** (prerequisite for any of the content below):
+- `GradeLevel` extended from `PRE_K..GRADE_3` to the full `PRE_K..GRADE_6`.
+- Fixed a real, previously-flagged gap: lessons were never filtered by grade at all — every child
+  saw every lesson regardless of age (`docs/PHASE_6_PLAN.md` had already called this out as
+  something to fix before adding more grades). `lessons` gained a `grade_level` column; the lesson
+  *list* endpoint moved from an ungated `GET /api/v1/lessons` to a child-scoped, grade-filtered
+  `GET /api/v1/children/{childId}/lessons`. `DashboardService`'s "recommended next" and
+  `TutorService`'s "suggested next activity" were both updated to respect the child's grade too.
+- `ENGLISH` added as a second subject alongside `MATH`.
+- Mobile: found the "Add a child" dialog never sent `gradeLevel` at all, so every child defaulted
+  to `GRADE_1` regardless of real age — fixed with a grade picker in the dialog.
+
+**Content**: 7 grade batches (Pre-K, Kindergarten, Grade 2, Grade 3, Grade 4, Grade 5, Grade 6),
+each with 9 Math + 8 English lessons (3 exercises per lesson) — 17 lessons/grade, matching the
+"comprehensive" depth the user asked for. Grade 1 was deliberately left at its original 5 lessons
+rather than rewritten to match (see "Curriculum scope" in `docs/DATABASE_DESIGN.md` for why).
+
+**How this was verified, honestly**: this was *not* written in one pass and assumed correct.
+Each grade's migration was applied against the running local demo backend (H2 in
+PostgreSQL-compatibility mode) individually, confirming the migration ran cleanly, the lesson
+list for a child at that grade returned exactly the expected lessons, and at least one real
+exercise submission (including apostrophe-heavy content, e.g. contractions) graded correctly
+end-to-end — before moving on to the next grade. A final regression pass confirmed all 8 grade
+levels simultaneously return the correct, non-overlapping lesson sets. 74/74 backend tests passing
+throughout.
+
+**Not done as part of this**: the curriculum content itself has not been reviewed by anyone with
+elementary-education subject-matter expertise — `docs/PHASE_6_PLAN.md` had already flagged that
+real curriculum content needs that kind of review before being trusted in front of real children,
+and that still applies here; this is a good-faith, standard-progression starting point, not a
+credentialed curriculum.
 
 ## Recorded assumptions (per "use defaults, record assumptions" instruction)
 

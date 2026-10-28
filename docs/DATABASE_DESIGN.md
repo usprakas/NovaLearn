@@ -38,7 +38,7 @@ refresh_tokens                                          -- V3
   revoked BOOLEAN NOT NULL DEFAULT FALSE
   INDEX idx_refresh_tokens_parent_id (parent_id)
 
--- Catalog (V5), seeded by V8 — Grade 1 Math only, see "Curriculum scope" below
+-- Catalog (V5), seeded by V8 (Grade 1 Math) through V16 (Grade 6) — see "Curriculum scope" below
 subjects
   code VARCHAR(20) PK
   name VARCHAR(100) NOT NULL
@@ -52,6 +52,7 @@ lessons
   id UUID PK
   code VARCHAR(100) UNIQUE NOT NULL
   subject_code VARCHAR(20) NOT NULL REFERENCES subjects
+  grade_level VARCHAR(20) NOT NULL  -- added V9; filters a child's lesson list to their own grade
   display_order INTEGER NOT NULL
   title VARCHAR(200) NOT NULL
   description VARCHAR(500) NOT NULL
@@ -133,16 +134,26 @@ child_badges
   PK (child_id, badge_code)
 ```
 
-## Curriculum scope: Grade 1 Math only
+## Curriculum scope: PRE_K through GRADE_6, Math and English
 
-V8 seeds exactly the five topics the master spec names for the MVP: Counting and Number
-Recognition, Addition, Subtraction, Number Comparison, Simple Word Problems — one subject
-(`MATH`), five skills (one per lesson), five lessons, fifteen exercises (three per lesson). English
-content added in an earlier, pre-master-spec session (`G1-ENG-01`/`G1-ENG-02`) was deliberately
-**not** carried into this DB-backed catalog, since section 3 of the master spec scopes the MVP to
-"Grade 1 mathematics using a Common Core-aligned curriculum" specifically. Adding English back is
-straightforward (one more `INSERT INTO subjects` + skills/lessons/exercises rows) whenever it's
-back in scope.
+V8 originally seeded exactly the five topics the master spec names for the MVP (Counting and
+Number Recognition, Addition, Subtraction, Number Comparison, Simple Word Problems) as Grade 1
+Math only, with English deliberately left out since the MVP scoped to "Grade 1 mathematics"
+specifically. That MVP scope was later explicitly expanded by the user to cover every grade from
+Pre-K through Grade 6, in both Math and English — V9 added the `grade_level` column and the
+`ENGLISH` subject; V10 through V16 seed one grade each (Grade 2 through Grade 6, plus Pre-K and
+Kindergarten), 9 Math + 8 English lessons per grade, 3 exercises per lesson.
+
+**Grade 1 was deliberately left at its original 5 lessons, not re-authored to the 17-lesson depth
+of the other grades.** It already existed before this expansion and works correctly; rewriting
+working MVP content to match a later depth standard wasn't judged worth the risk of introducing
+inconsistency with whatever usage/data already depends on those specific lesson codes. If Grade 1
+should be brought up to the same depth as the others, that's a clean follow-up (a new migration
+adding more Grade 1 lessons), not a rewrite of the existing five.
+
+Skill codes are grade-specific where the underlying skill's difficulty differs by grade (e.g.
+`ADDITION` for Grade 1's addition-within-10 vs. `ADD_100` for Grade 2's addition-within-100), so
+`skill_progress` accuracy tracking doesn't blend different difficulty levels into one bucket.
 
 ## Why the `lesson_code` FK was added late
 

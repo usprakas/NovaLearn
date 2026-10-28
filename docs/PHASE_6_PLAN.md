@@ -46,19 +46,26 @@ now would be unverified by construction.
   silently (a permission denial that isn't handled) is worse for a 5–8-year-old user than not
   having the feature.
 
-## 3. Additional subjects and grades
+## 3. Additional subjects and grades — ✅ done, no longer just a plan
 
-- **Mechanism already supports this with no schema change**: `subjects`/`skills`/`lessons` are
-  already generic DB tables (migration V5); `child_profiles.grade_level` already exists
-  (`PRE_K`..`GRADE_3`). Adding "Grade 2 Math" or "Grade 1 English" today is a content-authoring
-  task (new seed migration `V9__seed_grade2_math.sql` or similar), not an architecture change.
-- **What would need to change**: `LessonCatalogService`/`DashboardService` currently don't filter
-  the catalog by the child's `gradeLevel` — every child sees every lesson regardless of grade.
-  Before shipping a second grade's content, add that filter (`LessonDefinition` would need a
-  `gradeLevel` column), or a Grade-2 child would see Grade-1 lessons mixed in, which is wrong.
-- **Content review**: unlike code, curriculum content needs review by someone with actual
-  elementary-education subject-matter expertise before shipping to real children — this plan
-  explicitly does not claim engineering judgment is sufficient to author new grade-level curricula.
+This item was built, on the user's explicit request — see "Multi-grade curriculum expansion" in
+`docs/DEVELOPMENT_PLAN.md` for exactly what shipped (Pre-K through Grade 6, Math and English,
+17 lessons/grade except Grade 1's original 5) and how each grade was verified. The two real
+blockers this plan originally called out were both addressed as part of that work:
+
+- **The missing grade filter was fixed.** `lessons` gained a `grade_level` column; the lesson list
+  endpoint is now child-scoped and filtered to the child's own grade (it previously showed every
+  lesson to every child regardless of age, exactly the gap this plan flagged).
+- **Content review still has not happened.** The point below remains true and unaddressed — what
+  changed is that there's now a full PRE_K-GRADE_6 curriculum for that review to actually apply
+  to, not just five Grade 1 lessons.
+
+**Content review**: unlike code, curriculum content needs review by someone with actual
+elementary-education subject-matter expertise before being trusted in front of real children —
+this was true for the original 5 Grade 1 lessons and remains true for the much larger PRE_K-GRADE_6
+curriculum now in place. Engineering judgment (standard-progression topics, plausible
+difficulty-appropriate questions) was applied, but that is not the same thing as curriculum
+expertise, and no such review has happened.
 
 ## 4. Teacher dashboard
 
