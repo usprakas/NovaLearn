@@ -38,9 +38,10 @@ public class ExerciseAttemptController {
 
   public record SubmitAnswerRequest(@Min(0) int submittedAnswerIndex) { }
 
-  public record ExerciseEvaluationResponse(boolean correct, String explanation, String hint) {
+  public record ExerciseEvaluationResponse(boolean correct, String explanation, String hint, String correctChoiceText) {
     static ExerciseEvaluationResponse from(ExerciseEvaluation evaluation) {
-      return new ExerciseEvaluationResponse(evaluation.correct(), evaluation.explanation(), evaluation.hint());
+      return new ExerciseEvaluationResponse(
+          evaluation.correct(), evaluation.explanation(), evaluation.hint(), evaluation.correctChoiceText());
     }
   }
 }

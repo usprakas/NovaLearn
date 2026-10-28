@@ -78,6 +78,13 @@ class _LessonScreenState extends State<LessonScreen> {
     return null;
   }
 
+  /// The correct answer's own picture, parsed from `ExerciseEvaluation.correctChoiceText` — sent
+  /// by the server only after grading, so this never lets the client see an answer in advance.
+  ParsedChoiceVisual? _correctChoiceVisual() {
+    final String? text = _evaluation?.correctChoiceText;
+    return text == null ? null : parseChoiceVisual(text);
+  }
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
@@ -187,6 +194,26 @@ class _LessonScreenState extends State<LessonScreen> {
                                       const SizedBox(height: 8),
                                       Text('Hint: ${_evaluation!.hint}',
                                           style: Theme.of(context).textTheme.bodySmall),
+                                    ],
+                                    if (_correctChoiceVisual() != null) ...<Widget>[
+                                      const SizedBox(height: 12),
+                                      Row(children: <Widget>[
+                                        ChoiceVisualIcon(
+                                            visual: _correctChoiceVisual()!,
+                                            size: 36,
+                                            color: _evaluation!.correct
+                                                ? scheme.onPrimaryContainer
+                                                : scheme.onErrorContainer),
+                                        const SizedBox(width: 10),
+                                        Text('The answer: ${_correctChoiceVisual()!.label}',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .labelLarge
+                                                ?.copyWith(
+                                                    color: _evaluation!.correct
+                                                        ? scheme.onPrimaryContainer
+                                                        : scheme.onErrorContainer)),
+                                      ]),
                                     ],
                                   ])),
                         ]))),

@@ -42,6 +42,18 @@ void main() {
 
       expect(evaluation.correct, isFalse);
       expect(evaluation.hint, 'Count up from 2.');
+      expect(evaluation.correctChoiceText, isNull);
+    });
+
+    test('parses the correct choice text, sent only after grading', () {
+      final ExerciseEvaluation evaluation = ExerciseEvaluation.fromJson(<String, Object?>{
+        'correct': false,
+        'explanation': 'Eating 1 of 4 equal slices is 1/4.',
+        'hint': 'Count the slices.',
+        'correctChoiceText': 'FRACTION:1:4:1/4',
+      });
+
+      expect(evaluation.correctChoiceText, 'FRACTION:1:4:1/4');
     });
   });
 }

@@ -46,6 +46,7 @@ class ExerciseEvaluationServiceTest {
     assertThat(evaluation.correct()).isTrue();
     assertThat(evaluation.explanation()).isEqualTo("2 + 2 = 4.");
     assertThat(evaluation.hint()).isNull();
+    assertThat(evaluation.correctChoiceText()).isEqualTo("4");
     verify(progressService).recalculate(childId, "G1-ADD-01");
   }
 
@@ -65,6 +66,9 @@ class ExerciseEvaluationServiceTest {
 
     assertThat(evaluation.correct()).isFalse();
     assertThat(evaluation.hint()).isEqualTo("Count up from 2.");
+    // Revealed even on a wrong answer — the submission has already been graded, and the
+    // explanation text already states the answer in prose, so this is not a new disclosure.
+    assertThat(evaluation.correctChoiceText()).isEqualTo("4");
   }
 
   @Test

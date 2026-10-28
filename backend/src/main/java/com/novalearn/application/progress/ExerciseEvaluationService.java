@@ -53,7 +53,8 @@ public class ExerciseEvaluationService {
     recordSkillProgress(childId, answerKey.skillCode(), correct);
     progressService.recalculate(childId, exercise.lessonCode());
 
-    return new ExerciseEvaluation(correct, answerKey.explanation(), correct ? null : answerKey.hint());
+    String correctChoiceText = exercise.choices().get(answerKey.correctAnswerIndex());
+    return new ExerciseEvaluation(correct, answerKey.explanation(), correct ? null : answerKey.hint(), correctChoiceText);
   }
 
   private void recordSkillProgress(UUID childId, String skillCode, boolean correct) {
