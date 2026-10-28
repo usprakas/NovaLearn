@@ -93,8 +93,10 @@ void main() {
   });
 
   test('converts API errors into a display-safe exception', () async {
+    bool unauthorizedCalled = false;
     final NovaLearnApi api = NovaLearnApi(
       baseUrl: 'https://api.example.test',
+      onUnauthorized: () => unauthorizedCalled = true,
       client: MockClient((http.Request _) async => http.Response(
             jsonEncode(<String, String>{'detail': 'Invalid email or password'}),
             401,
@@ -106,5 +108,29 @@ void main() {
       throwsA(isA<ApiException>().having(
           (ApiException error) => error.statusCode, 'status code', 401)),
     );
+    // A wrong password on login is not a dead session — it must never force a sign-out.
+    expect(unauthorizedCalled, isFalse);
+  });
+
+  test('reports an authenticated 401 as unauthorized, not just a generic failure', () async {
+    bool unauthorizedCalled = false;
+    final NovaLearnApi api = NovaLearnApi(
+      baseUrl: 'https://api.example.test',
+      onUnauthorized: () => unauthorizedCalled = true,
+      client: MockClient((http.Request request) async {
+        expect(request.headers['Authorization'], 'Bearer stale-token');
+        // MockClient threads this Response's own `request:` through to what the caller sees
+        // (not the real incoming request) — set it explicitly so `response.request` reflects the
+        // headers that were actually sent, same as a real Client always does.
+        return http.Response(jsonEncode(<String, String>{'detail': 'Token expired'}), 401,
+            request: request);
+      }),
+    );
+
+    await expectLater(
+      api.children('stale-token'),
+      throwsA(isA<ApiException>()),
+    );
+    expect(unauthorizedCalled, isTrue);
   });
 }

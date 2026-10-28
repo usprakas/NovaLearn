@@ -33,12 +33,18 @@ class NovaLearnApi
         DashboardRepository,
         TutorRepository,
         HomeworkRepository {
-  NovaLearnApi({http.Client? client, String? baseUrl})
+  NovaLearnApi({http.Client? client, String? baseUrl, this.onUnauthorized})
       : _client = client ?? http.Client(),
         _baseUrl = baseUrl ?? AppConfig.apiBaseUrl;
 
   final http.Client _client;
   final String _baseUrl;
+
+  /// Called once, synchronously, the first time an *authenticated* request (one that sent a
+  /// Bearer token) comes back 401 — the access token is dead (expired, revoked, or signed by a
+  /// backend that's since restarted with a new secret) and no amount of retrying will fix it.
+  /// Not called for a 401 on `login`/`register` themselves, which just means "wrong password."
+  final void Function()? onUnauthorized;
 
   @override
   Future<AuthSession> login(String email, String password) =>
@@ -242,6 +248,9 @@ class NovaLearnApi
 
   void _ensureSuccess(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) return;
+    if (response.statusCode == 401 && response.request?.headers.containsKey('Authorization') == true) {
+      onUnauthorized?.call();
+    }
     String message = 'Something went wrong. Please try again.';
     try {
       message =

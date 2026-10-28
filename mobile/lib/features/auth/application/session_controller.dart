@@ -56,6 +56,7 @@ class SessionController extends StateNotifier<AsyncValue<Session?>> {
   }
 }
 
-final sessionControllerProvider = StateNotifierProvider<SessionController, AsyncValue<Session?>>(
+final StateNotifierProvider<SessionController, AsyncValue<Session?>> sessionControllerProvider =
+    StateNotifierProvider<SessionController, AsyncValue<Session?>>(
   (ref) => SessionController(ref.watch(novaLearnApiProvider), ref.watch(sessionStoreProvider)),
 );
