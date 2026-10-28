@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
-import '../../../core/widgets/shape_icon.dart';
+import '../../../core/widgets/choice_visual.dart';
+import '../../../core/widgets/coordinate_grid.dart';
 import '../../children/domain/child.dart';
 import '../domain/exercise_evaluation.dart';
 import '../domain/exercise_repository.dart';
 import '../domain/lesson.dart';
+
+/// Grade 3's "the long hand points to the N" minute-hand exercises describe a clock verbally with
+/// no image — this pulls the number straight out of the existing prompt text so a clock face can
+/// be drawn above the question (hour hand faint/irrelevant, long hand at that position).
+final RegExp _minuteHandPattern = RegExp(r'long hand points to the (\d+)');
 
 /// Shows one exercise at a time and submits each answer to the server for grading (see
 /// `ExerciseRepository.submitAnswer`) instead of computing a score locally — the client never
@@ -58,10 +64,25 @@ class _LessonScreenState extends State<LessonScreen> {
     });
   }
 
+  /// A clock or coordinate-grid illustration of the current question itself, derived straight
+  /// from its existing prompt text (no backend tagging needed for either) — null when the prompt
+  /// doesn't describe anything drawable.
+  Widget? _promptVisual(Color color) {
+    final RegExpMatch? minuteHand = _minuteHandPattern.firstMatch(_current.prompt);
+    if (minuteHand != null) {
+      final int position = int.parse(minuteHand.group(1)!);
+      return ClockFaceIcon(hour: 12, minute: position * 5, size: 96, color: color, emphasizeMinuteHand: true);
+    }
+    final List<Offset> points = extractPlanePoints(_current.prompt);
+    if (points.isNotEmpty) return CoordinateGrid(points: points, color: color);
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final int total = widget.lesson.exercises.length;
+    final Widget? promptVisual = _promptVisual(scheme.primary);
     return Scaffold(
       appBar: AppBar(title: Text(widget.lesson.title)),
       body: ListView(
@@ -92,6 +113,10 @@ class _LessonScreenState extends State<LessonScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(_current.prompt, style: Theme.of(context).textTheme.titleLarge),
+                        if (promptVisual != null) ...<Widget>[
+                          const SizedBox(height: 12),
+                          Center(child: promptVisual),
+                        ],
                         const SizedBox(height: 4),
                         RadioGroup<int>(
                             groupValue: _selectedChoice,
@@ -101,8 +126,8 @@ class _LessonScreenState extends State<LessonScreen> {
                             child: Column(
                                 children: List<Widget>.generate(_current.choices.length, (int choice) {
                               final bool selected = _selectedChoice == choice;
-                              final ParsedShapeChoice? shape =
-                                  parseShapeChoice(_current.choices[choice]);
+                              final ParsedChoiceVisual? visual =
+                                  parseChoiceVisual(_current.choices[choice]);
                               final TextStyle labelStyle = TextStyle(
                                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500);
                               return Padding(
@@ -115,12 +140,12 @@ class _LessonScreenState extends State<LessonScreen> {
                                       child: RadioListTile<int>(
                                           shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(14)),
-                                          title: shape == null
+                                          title: visual == null
                                               ? Text(_current.choices[choice], style: labelStyle)
                                               : Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
-                                                  ShapeIcon(shapeKey: shape.shapeKey, color: scheme.primary),
+                                                  ChoiceVisualIcon(visual: visual, color: scheme.primary),
                                                   const SizedBox(width: 12),
-                                                  Text(shape.label, style: labelStyle),
+                                                  Text(visual.label, style: labelStyle),
                                                 ]),
                                           value: choice)));
                             })))

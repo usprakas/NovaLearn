@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'vector_math.dart' as vector_math;
 
 /// Backend content can tag a shape-name answer choice as `SHAPE:<key>:<Label>` (e.g.
 /// `SHAPE:hexagon:Hexagon`) instead of plain text, so a shape-recognition exercise actually shows
@@ -103,22 +104,8 @@ class _PolygonPainter extends CustomPainter {
     canvas.drawPath(path, paint);
   }
 
-  double _cos(double radians) => _taylorCos(radians);
-  double _sin(double radians) => _taylorCos(radians - 1.5707963267948966);
-
-  // Small, dependency-free cosine approximation (good enough for drawing a polygon outline) —
-  // avoids pulling in dart:math just for two trig calls, consistent with keeping this a tiny,
-  // self-contained painter.
-  double _taylorCos(double x) {
-    while (x > 3.141592653589793) {
-      x -= 2 * 3.141592653589793;
-    }
-    while (x < -3.141592653589793) {
-      x += 2 * 3.141592653589793;
-    }
-    final double x2 = x * x;
-    return 1 - x2 / 2 + (x2 * x2) / 24 - (x2 * x2 * x2) / 720;
-  }
+  double _cos(double radians) => vector_math.taylorCos(radians);
+  double _sin(double radians) => vector_math.taylorSin(radians);
 
   @override
   bool shouldRepaint(covariant _PolygonPainter oldDelegate) =>
