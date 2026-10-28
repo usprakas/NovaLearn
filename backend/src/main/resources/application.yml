@@ -33,6 +33,7 @@ novalearn:
     jwt-secret: ${JWT_SECRET}
     access-token-ttl-seconds: ${JWT_ACCESS_TOKEN_TTL_SECONDS:3600}
     refresh-token-ttl-days: ${JWT_REFRESH_TOKEN_TTL_DAYS:30}
+    allowed-origins: ${ALLOWED_ORIGINS:}
   rate-limit:
     auth-attempts-per-minute: ${AUTH_RATE_LIMIT_PER_MINUTE:10}
     ai-requests-per-minute: ${AI_RATE_LIMIT_PER_MINUTE:20}
