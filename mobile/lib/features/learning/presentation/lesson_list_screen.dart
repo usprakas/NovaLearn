@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/error_state.dart';
+import '../../../core/widgets/nova_star.dart';
 import '../../children/domain/child.dart';
 import '../domain/exercise_repository.dart';
 import '../domain/lesson.dart';
@@ -64,8 +65,12 @@ class _LessonListTabState extends State<LessonListTab> {
         }
         final List<LessonSummary> lessons = snapshot.data ?? <LessonSummary>[];
         return ListView(padding: const EdgeInsets.all(24), children: <Widget>[
-          Text('Hi, ${widget.child.displayName}!',
-              style: Theme.of(context).textTheme.headlineMedium),
+          Row(children: <Widget>[
+            Expanded(
+                child: Text('Hi, ${widget.child.displayName}!',
+                    style: Theme.of(context).textTheme.headlineMedium)),
+            const NovaStar(size: 26),
+          ]),
           const SizedBox(height: 4),
           Text("Ready for today's learning adventure?",
               style: Theme.of(context)
@@ -79,13 +84,17 @@ class _LessonListTabState extends State<LessonListTab> {
                 child: ListTile(
                     contentPadding: const EdgeInsets.all(12),
                     leading: Container(
-                        width: 44,
-                        height: 44,
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
-                            color: subjectColor.withValues(alpha: 0.15),
-                            shape: BoxShape.circle),
+                          color: subjectColor.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(color: subjectColor.withValues(alpha: 0.18), blurRadius: 10),
+                          ],
+                        ),
                         child: Icon(AppTheme.subjectIcon(summary.subject),
-                            color: subjectColor)),
+                            color: subjectColor, size: 22)),
                     title: Text(summary.title,
                         style: Theme.of(context).textTheme.titleMedium),
                     subtitle: Text(summary.description),

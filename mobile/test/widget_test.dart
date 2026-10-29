@@ -62,6 +62,9 @@ void main() {
   testWidgets('switches to the registration form', (WidgetTester tester) async {
     await tester.pumpWidget(_authScreenUnderTest());
 
+    // The hero section pushes the toggle button below the fold on a small test viewport — scroll
+    // it into view first, same as a real (narrow) phone screen would need to.
+    await tester.ensureVisible(find.text('New to NovaLearn? Create an account'));
     await tester.tap(find.text('New to NovaLearn? Create an account'));
     await tester.pump();
 

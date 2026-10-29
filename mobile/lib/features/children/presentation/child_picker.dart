@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/error_state.dart';
+import '../../../core/widgets/nova_star.dart';
 import '../domain/child.dart';
 import '../domain/children_repository.dart';
 
@@ -116,25 +118,17 @@ class _ChildSwitcherBar extends StatelessWidget {
                                       ])))
                                   .toList(),
                               child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
-                                CircleAvatar(
-                                    radius: 14,
-                                    backgroundColor: scheme.primaryContainer,
-                                    child: Text(active.displayName.substring(0, 1).toUpperCase(),
-                                        style: TextStyle(color: scheme.onPrimaryContainer))),
-                                const SizedBox(width: 8),
+                                _ChildAvatar(name: active.displayName),
+                                const SizedBox(width: 10),
                                 Flexible(
                                     child: Text(active.displayName,
                                         overflow: TextOverflow.ellipsis,
                                         style: Theme.of(context).textTheme.titleMedium)),
-                                const Icon(Icons.expand_more),
+                                const Icon(Icons.expand_more_rounded),
                               ]))
                           : Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
-                              CircleAvatar(
-                                  radius: 14,
-                                  backgroundColor: scheme.primaryContainer,
-                                  child: Text(active.displayName.substring(0, 1).toUpperCase(),
-                                      style: TextStyle(color: scheme.onPrimaryContainer))),
-                              const SizedBox(width: 8),
+                              _ChildAvatar(name: active.displayName),
+                              const SizedBox(width: 10),
                               Flexible(
                                   child: Text(active.displayName,
                                       overflow: TextOverflow.ellipsis,
@@ -145,6 +139,30 @@ class _ChildSwitcherBar extends StatelessWidget {
                       onPressed: onAddChild,
                       icon: const Icon(Icons.person_add_alt_1_outlined)),
                 ]))));
+  }
+}
+
+/// A gradient initial-letter avatar, picking one of a few brand colors deterministically by name
+/// so siblings read as visually distinct rather than identical primaryContainer circles. Only
+/// colors already verified for white text (see app_theme.dart) are used here.
+class _ChildAvatar extends StatelessWidget {
+  const _ChildAvatar({required this.name});
+  final String name;
+
+  static const List<Color> _palette = <Color>[
+    AppTheme.cosmicViolet,
+    Color(0xff2563eb),
+    Color(0xff12883e),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = _palette[name.hashCode.abs() % _palette.length];
+    return CircleAvatar(
+        radius: 16,
+        backgroundColor: color,
+        child: Text(name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)));
   }
 }
 
@@ -164,12 +182,26 @@ class _NewChildPrompt extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   Container(
-                      width: 96,
-                      height: 96,
-                      decoration:
-                          BoxDecoration(color: scheme.primaryContainer, shape: BoxShape.circle),
-                      child: Icon(Icons.family_restroom_rounded,
-                          size: 48, color: scheme.onPrimaryContainer)),
+                      width: 104,
+                      height: 104,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: <Color>[AppTheme.novaPink, AppTheme.cosmicViolet],
+                        ),
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                              color: scheme.primary.withValues(alpha: 0.35),
+                              blurRadius: 24,
+                              spreadRadius: 1),
+                        ],
+                      ),
+                      child: const Stack(alignment: Alignment.center, children: <Widget>[
+                        Icon(Icons.family_restroom_rounded, size: 46, color: Colors.white),
+                        Positioned(right: 14, top: 14, child: NovaStar(size: 20, color: Colors.white)),
+                      ])),
                   const SizedBox(height: 24),
                   Text("Let's set up your child's profile",
                       textAlign: TextAlign.center,

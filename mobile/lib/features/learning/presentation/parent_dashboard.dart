@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/error_state.dart';
 import '../../children/domain/child.dart';
 import '../../rewards/domain/badges_repository.dart';
@@ -114,10 +115,22 @@ class _ParentDashboardState extends State<ParentDashboard> {
             const SizedBox(height: 8),
             Wrap(
                 spacing: 8,
+                runSpacing: 8,
                 children: badges
-                    .map((ChildBadge badge) => Chip(
-                        avatar: const Icon(Icons.emoji_events, size: 18),
-                        label: Text(badge.badgeCode.replaceAll('_', ' '))))
+                    .map((ChildBadge badge) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: const LinearGradient(
+                              colors: <Color>[AppTheme.starYellow, AppTheme.novaOrange]),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+                          const Icon(Icons.emoji_events_rounded, size: 18, color: AppTheme.deepSpace),
+                          const SizedBox(width: 6),
+                          Text(badge.badgeCode.replaceAll('_', ' '),
+                              style: const TextStyle(
+                                  color: AppTheme.deepSpace, fontWeight: FontWeight.w800)),
+                        ])))
                     .toList()),
           ],
           const SizedBox(height: 24),
@@ -132,9 +145,10 @@ class _ParentDashboardState extends State<ParentDashboard> {
               child: ListTile(
                   leading: Icon(
                       item.completed
-                          ? Icons.check_circle
-                          : Icons.hourglass_empty,
-                      color: item.completed ? Colors.green : null),
+                          ? Icons.check_circle_rounded
+                          : Icons.hourglass_empty_rounded,
+                      // Same WCAG-corrected green as AppTheme.subjectColor's ENGLISH shade.
+                      color: item.completed ? const Color(0xff12883e) : null),
                   title: Text(item.lessonCode),
                   trailing: Text('${item.score}%')))),
         ]);

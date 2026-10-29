@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/voice/voice_assistant.dart';
 import '../../../core/widgets/error_state.dart';
+import '../../../core/widgets/nova_star.dart';
 import '../../children/domain/child.dart';
 import '../domain/tutor_answer.dart';
 import '../domain/tutor_repository.dart';
@@ -103,7 +104,11 @@ class _TutorTabState extends State<TutorTab> {
   Widget build(BuildContext context) => ListView(
       padding: const EdgeInsets.all(24),
       children: <Widget>[
-        Text('Ask NovaLearn', style: Theme.of(context).textTheme.headlineSmall),
+        Row(children: <Widget>[
+          const NovaStar(size: 22),
+          const SizedBox(width: 8),
+          Text('Ask NovaLearn', style: Theme.of(context).textTheme.headlineSmall),
+        ]),
         const SizedBox(height: 8),
         Text(
             "${widget.child.displayName} can ask any question, and NovaLearn will explain it in a "

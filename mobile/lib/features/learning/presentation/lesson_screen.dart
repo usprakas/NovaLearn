@@ -1,6 +1,9 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/choice_visual.dart';
 import '../../../core/widgets/coordinate_grid.dart';
+import '../../../core/widgets/nova_star.dart';
 import '../../children/domain/child.dart';
 import '../domain/exercise_evaluation.dart';
 import '../domain/exercise_repository.dart';
@@ -46,6 +49,9 @@ class _LessonScreenState extends State<LessonScreen> {
     try {
       final ExerciseEvaluation evaluation = await widget.exerciseRepository.submitAnswer(
           widget.token, widget.child.id, _current.id, _selectedChoice!);
+      if (evaluation.correct) {
+        _celebrationPhrase = _celebrations[_celebrationRandom.nextInt(_celebrations.length)];
+      }
       if (mounted) setState(() => _evaluation = evaluation);
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -77,6 +83,21 @@ class _LessonScreenState extends State<LessonScreen> {
     if (points.isNotEmpty) return CoordinateGrid(points: points, color: color);
     return null;
   }
+
+  static const List<String> _celebrations = <String>[
+    'Correct! You nailed it! ✦',
+    "Yes! That's it!",
+    'Nova-powered thinking!',
+    'Great job — on to the next one!',
+  ];
+
+  final math.Random _celebrationRandom = math.Random();
+
+  /// Re-rolled once per correct submission (in [_submit]), not per rebuild, so the phrase stays
+  /// put while the feedback card is already showing instead of changing on every repaint.
+  String _celebrationPhrase = _celebrations.first;
+
+  String _celebration() => _celebrationPhrase;
 
   /// The correct answer's own picture, parsed from `ExerciseEvaluation.correctChoiceText` — sent
   /// by the server only after grading, so this never lets the client see an answer in advance.
@@ -167,27 +188,38 @@ class _LessonScreenState extends State<LessonScreen> {
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
                     : const Text('Submit answer'))
           else ...<Widget>[
-            Card(
-                color: _evaluation!.correct ? scheme.primaryContainer : scheme.errorContainer,
+            Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(26),
+                  gradient: _evaluation!.correct
+                      ? const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: <Color>[AppTheme.starYellow, AppTheme.novaOrange])
+                      : null,
+                  color: _evaluation!.correct ? null : scheme.errorContainer,
+                ),
                 child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(18),
                     child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          Icon(
-                              _evaluation!.correct
-                                  ? Icons.check_circle_rounded
-                                  : Icons.lightbulb_rounded,
-                              color: _evaluation!.correct
-                                  ? scheme.onPrimaryContainer
-                                  : scheme.onErrorContainer),
+                          _evaluation!.correct
+                              ? const NovaStar(size: 30, color: AppTheme.deepSpace)
+                              : Icon(Icons.lightbulb_rounded, color: scheme.onErrorContainer),
                           const SizedBox(width: 12),
                           Expanded(
                               child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: <Widget>[
-                                    Text(_evaluation!.correct ? 'Correct!' : 'Not quite',
-                                        style: Theme.of(context).textTheme.titleMedium),
+                                    Text(
+                                        _evaluation!.correct
+                                            ? _celebration()
+                                            : "Not quite — let's see why",
+                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                            color: _evaluation!.correct
+                                                ? AppTheme.deepSpace
+                                                : scheme.onErrorContainer)),
                                     const SizedBox(height: 6),
                                     Text(_evaluation!.explanation),
                                     if (_evaluation!.hint != null) ...<Widget>[
