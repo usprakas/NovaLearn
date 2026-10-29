@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/avatar_icon.dart';
 import '../../../core/widgets/error_state.dart';
 import '../../../core/widgets/nova_star.dart';
+import '../../onboarding/presentation/meet_tutor_screen.dart';
 import '../domain/child.dart';
 import '../domain/children_repository.dart';
+
+Future<void> _showMeetTutor(BuildContext context, Child child) => Navigator.of(context).push(
+    MaterialPageRoute<void>(builder: (_) => MeetTutorScreen(childName: child.displayName)));
 
 class ChildPicker extends StatefulWidget {
   const ChildPicker(
@@ -41,7 +46,9 @@ class _ChildPickerState extends State<ChildPicker> {
         context: context,
         builder: (_) =>
             _ChildDialog(token: widget.token, repository: widget.childrenRepository));
-    if (result != null) _reload(selectChildId: result.id);
+    if (result == null) return;
+    if (context.mounted) await _showMeetTutor(context, result);
+    _reload(selectChildId: result.id);
   }
 
   @override
@@ -114,11 +121,13 @@ class _ChildSwitcherBar extends StatelessWidget {
                                         else
                                           const SizedBox(width: 18),
                                         const SizedBox(width: 8),
+                                        AvatarIcon(avatar: c.avatar, size: 24),
+                                        const SizedBox(width: 8),
                                         Text(c.displayName),
                                       ])))
                                   .toList(),
                               child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
-                                _ChildAvatar(name: active.displayName),
+                                AvatarIcon(avatar: active.avatar, size: 32),
                                 const SizedBox(width: 10),
                                 Flexible(
                                     child: Text(active.displayName,
@@ -127,7 +136,7 @@ class _ChildSwitcherBar extends StatelessWidget {
                                 const Icon(Icons.expand_more_rounded),
                               ]))
                           : Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
-                              _ChildAvatar(name: active.displayName),
+                              AvatarIcon(avatar: active.avatar, size: 32),
                               const SizedBox(width: 10),
                               Flexible(
                                   child: Text(active.displayName,
@@ -139,30 +148,6 @@ class _ChildSwitcherBar extends StatelessWidget {
                       onPressed: onAddChild,
                       icon: const Icon(Icons.person_add_alt_1_outlined)),
                 ]))));
-  }
-}
-
-/// A gradient initial-letter avatar, picking one of a few brand colors deterministically by name
-/// so siblings read as visually distinct rather than identical primaryContainer circles. Only
-/// colors already verified for white text (see app_theme.dart) are used here.
-class _ChildAvatar extends StatelessWidget {
-  const _ChildAvatar({required this.name});
-  final String name;
-
-  static const List<Color> _palette = <Color>[
-    AppTheme.cosmicViolet,
-    Color(0xff2563eb),
-    Color(0xff12883e),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final Color color = _palette[name.hashCode.abs() % _palette.length];
-    return CircleAvatar(
-        radius: 16,
-        backgroundColor: color,
-        child: Text(name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)));
   }
 }
 
@@ -222,7 +207,9 @@ class _NewChildPrompt extends StatelessWidget {
                             context: context,
                             builder: (_) =>
                                 _ChildDialog(token: token, repository: repository));
-                        if (result != null) onCreated();
+                        if (result == null) return;
+                        if (context.mounted) await _showMeetTutor(context, result);
+                        onCreated();
                       }),
                 ])));
   }
@@ -240,6 +227,7 @@ class _ChildDialogState extends State<_ChildDialog> {
   final TextEditingController _name = TextEditingController();
   DateTime _birthDate = DateTime(2020, 1, 1);
   String _gradeLevel = 'GRADE_1';
+  String _avatar = avatars.first;
   @override
   void dispose() {
     _name.dispose();
@@ -278,6 +266,37 @@ class _ChildDialogState extends State<_ChildDialog> {
                 onChanged: (String? value) {
                   if (value != null) setState(() => _gradeLevel = value);
                 }),
+            const SizedBox(height: 16),
+            Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Pick an avatar',
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelLarge
+                        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant))),
+            const SizedBox(height: 8),
+            Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: avatars.map((String a) {
+                  final bool selected = a == _avatar;
+                  return GestureDetector(
+                      onTap: () => setState(() => _avatar = a),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
+                        Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: selected
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Colors.transparent,
+                                    width: 3)),
+                            child: AvatarIcon(avatar: a, size: 48)),
+                        const SizedBox(height: 4),
+                        Text(AvatarIcon.label(a), style: Theme.of(context).textTheme.labelSmall),
+                      ]));
+                }).toList()),
           ]),
           actions: <Widget>[
             TextButton(
@@ -292,7 +311,8 @@ class _ChildDialogState extends State<_ChildDialog> {
                       ChildDraft(
                           displayName: _name.text,
                           birthDate: _birthDate,
-                          gradeLevel: _gradeLevel));
+                          gradeLevel: _gradeLevel,
+                          avatar: _avatar));
                   if (!mounted) return;
                   navigator.pop(child);
                 },
