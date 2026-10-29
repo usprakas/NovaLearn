@@ -120,10 +120,9 @@ Origin headers of each live frontend
 
 ## Known issues / explicitly deferred
 
-- **The AI tutor still runs on offline deterministic templates on the live deployment** — no
-  `ANTHROPIC_API_KEY`/`GEMINI_API_KEY` is set on the Render backend yet. A real (free-tier) Gemini
-  key exists from earlier in the project; wiring it into the live deployment is the very next
-  planned step as of this writing.
+- ~~The AI tutor runs on offline templates on the live deployment~~ — `GEMINI_API_KEY` is now set
+  on the Render backend; verified live (tutor and homework helper both give genuine, kid-friendly
+  AI-generated explanations, not the deterministic offline template).
 - Kid-sized text (18px+, bumped from default ~14–16px Material sizing) only landed on the lesson
   screen — tutor/homework screens still use default sizing.
 - Tablet responsiveness is auto-wrap grids (`SliverGridDelegateWithMaxCrossAxisExtent`,
@@ -147,10 +146,8 @@ Origin headers of each live frontend
 ## Exact next action
 
 In priority order, as scoped with the user at the end of this session:
-1. Set `GEMINI_API_KEY` on the Render backend so the live tutor/homework helper gives real AI
-   responses instead of offline templates.
-2. Onboarding redesign (avatar picker, "meet the tutor" flow) and a friendlier tutor screen
-   (suggested-question chips instead of requiring typing, for children who can't type yet).
-3. Extend the kid-sized-text treatment to the tutor/homework screens.
-4. Consider a "remembered for this app session" exemption on the parent gate so a parent isn't
+1. A friendlier tutor screen — suggested-question chips instead of requiring typing, for children
+   who can't type yet (onboarding itself — avatar picker + "meet the tutor" — is now done).
+2. Extend the kid-sized-text treatment to the tutor/homework screens.
+3. Consider a "remembered for this app session" exemption on the parent gate so a parent isn't
    re-solving a math problem every time they check the dashboard.
