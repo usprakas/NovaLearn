@@ -57,6 +57,22 @@ void main() {
     expect(find.widgetWithText(TextFormField, 'Email'), findsOneWidget);
     expect(find.widgetWithText(TextFormField, 'Password'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
+    expect(find.text('Try the demo — no sign-up needed'), findsOneWidget);
+  });
+
+  testWidgets('tapping the demo button logs in without filling the form',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(_authScreenUnderTest());
+
+    await tester.ensureVisible(find.text('Try the demo — no sign-up needed'));
+    await tester.tap(find.text('Try the demo — no sign-up needed'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    // _StubAuthRepository.login always succeeds (regardless of the credentials passed to it),
+    // so no error SnackBar should appear — confirming the tap actually called login(), not a
+    // no-op, with neither the email nor password field ever filled in.
+    expect(find.byType(SnackBar), findsNothing);
   });
 
   testWidgets('switches to the registration form', (WidgetTester tester) async {

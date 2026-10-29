@@ -18,6 +18,30 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final TextEditingController _password = TextEditingController();
   bool _registering = false;
   bool _submitting = false;
+  bool _demoLoading = false;
+
+  // A real, persistent account on the live backend, seeded with two sample children and some
+  // actual progress — not a client-side mock. Credentials are intentionally public: this is a
+  // demo account, meant to be explored by anyone without signing up.
+  static const String _demoEmail = 'demo@novalearn.app';
+  static const String _demoPassword = 'NovaLearnDemo2026!';
+
+  Future<void> _loginDemo() async {
+    setState(() => _demoLoading = true);
+    try {
+      await ref
+          .read(sessionControllerProvider.notifier)
+          .login(_demoEmail, _demoPassword);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                "Couldn't reach the demo account. Check your connection and try again.")));
+      }
+    } finally {
+      if (mounted) setState(() => _demoLoading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -166,6 +190,24 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                         child: Text(_registering
                                             ? 'Already have an account? Sign in'
                                             : 'New to NovaLearn? Create an account')),
+                                    const SizedBox(height: 20),
+                                    Row(children: <Widget>[
+                                      Expanded(child: Divider(color: scheme.outlineVariant)),
+                                      Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          child: Text('or',
+                                              style: TextStyle(color: scheme.onSurfaceVariant))),
+                                      Expanded(child: Divider(color: scheme.outlineVariant)),
+                                    ]),
+                                    const SizedBox(height: 16),
+                                    OutlinedButton.icon(
+                                        onPressed: _submitting || _demoLoading ? null : _loginDemo,
+                                        icon: _demoLoading
+                                            ? const SizedBox.square(
+                                                dimension: 18,
+                                                child: CircularProgressIndicator(strokeWidth: 2.5))
+                                            : const Icon(Icons.play_circle_outline_rounded),
+                                        label: const Text('Try the demo — no sign-up needed')),
                                   ])),
                         ),
                       ),
