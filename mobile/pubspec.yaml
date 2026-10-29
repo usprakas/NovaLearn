@@ -14,7 +14,6 @@ dependencies:
   flutter_riverpod: ^2.6.1
   speech_to_text: ^7.5.0
   flutter_tts: ^4.2.5
-  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:
@@ -26,6 +25,33 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon/icon.png
+  # Bundled locally rather than fetched at runtime via the google_fonts package — a child on a
+  # restricted or slow network (school wifi, a content filter, a flaky connection) shouldn't have
+  # the app's typography (or worse, perceived "is this loading at all") depend on reaching
+  # fonts.gstatic.com. Variable fonts: Flutter picks the matching named instance within the one
+  # file for each declared weight. OFL.txt alongside each — required by the Open Font License when
+  # redistributing (SIL OFL 1.1, both fonts).
+  fonts:
+    - family: Baloo2
+      fonts:
+        - asset: assets/fonts/Baloo2-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/Baloo2-Variable.ttf
+          weight: 600
+        - asset: assets/fonts/Baloo2-Variable.ttf
+          weight: 700
+        - asset: assets/fonts/Baloo2-Variable.ttf
+          weight: 800
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/Nunito-Variable.ttf
+          weight: 600
+        - asset: assets/fonts/Nunito-Variable.ttf
+          weight: 700
+        - asset: assets/fonts/Nunito-Variable.ttf
+          weight: 800
 
 flutter_launcher_icons:
   android: true

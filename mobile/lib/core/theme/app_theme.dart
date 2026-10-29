@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// NovaLearn's visual identity: a "Nova" (exploding star) theme — cosmic violet as the anchor
 /// color with warm starburst accents — chosen to be distinctive rather than the generic bright-
@@ -54,8 +53,9 @@ class AppTheme {
         scrolledUnderElevation: 1,
         backgroundColor: colorScheme.surface,
         foregroundColor: colorScheme.onSurface,
-        titleTextStyle: GoogleFonts.baloo2(
-            fontSize: 22, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+        titleTextStyle: const TextStyle(
+            fontFamily: 'Baloo2', fontSize: 22, fontWeight: FontWeight.w700).copyWith(
+            color: colorScheme.onSurface),
       ),
       cardTheme: CardThemeData(
         elevation: 0,
@@ -67,27 +67,27 @@ class AppTheme {
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 28),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          textStyle: GoogleFonts.baloo2(fontSize: 17, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontFamily: 'Baloo2', fontSize: 17, fontWeight: FontWeight.w600),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 22),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          textStyle: GoogleFonts.baloo2(fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontFamily: 'Baloo2', fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w700),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
-        labelStyle: GoogleFonts.nunito(fontWeight: FontWeight.w600),
+        labelStyle: const TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w600),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(
@@ -104,16 +104,16 @@ class AppTheme {
         height: 72,
         backgroundColor: colorScheme.surfaceContainer,
         indicatorColor: colorScheme.primaryContainer,
-        labelTextStyle: WidgetStateProperty.all(
-            GoogleFonts.nunito(fontSize: 12.5, fontWeight: FontWeight.w800)),
+        labelTextStyle: WidgetStateProperty.all(const TextStyle(
+            fontFamily: 'Nunito', fontSize: 12.5, fontWeight: FontWeight.w800)),
       ),
       chipTheme: ChipThemeData(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         side: BorderSide.none,
         backgroundColor: colorScheme.secondaryContainer,
-        labelStyle:
-            GoogleFonts.nunito(color: colorScheme.onSecondaryContainer, fontWeight: FontWeight.w700),
+        labelStyle: const TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w700)
+            .copyWith(color: colorScheme.onSecondaryContainer),
       ),
       listTileTheme: ListTileThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -127,8 +127,8 @@ class AppTheme {
   }
 
   static TextTheme _textTheme(TextTheme base, ColorScheme scheme) {
-    final TextTheme nunito = GoogleFonts.nunitoTextTheme(base);
-    final TextTheme baloo = GoogleFonts.baloo2TextTheme(base);
+    final TextTheme nunito = base.apply(fontFamily: 'Nunito');
+    final TextTheme baloo = base.apply(fontFamily: 'Baloo2');
     return nunito.copyWith(
       displayLarge: baloo.displayLarge?.copyWith(fontWeight: FontWeight.w800),
       displayMedium: baloo.displayMedium?.copyWith(fontWeight: FontWeight.w800),
