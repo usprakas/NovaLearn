@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers.dart';
 import '../../../core/security/session_store.dart';
+import '../../../core/widgets/parent_gate.dart';
 import '../../auth/presentation/account_settings_screen.dart';
 import '../../children/domain/child.dart';
 import '../../children/presentation/child_picker.dart';
@@ -27,9 +28,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('NovaLearn'), actions: <Widget>[
         IconButton(
-            tooltip: 'Account',
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                builder: (_) => AccountSettingsScreen(session: widget.session))),
+            tooltip: 'Account (grown-ups only)',
+            onPressed: () => _openGated(
+                context,
+                (BuildContext context) =>
+                    AccountSettingsScreen(session: widget.session)),
             icon: const Icon(Icons.account_circle_outlined))
       ]),
       body: ChildPicker(
@@ -40,7 +43,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       bottomNavigationBar: NavigationBar(
           selectedIndex: _tab,
-          onDestinationSelected: (int value) => setState(() => _tab = value),
+          onDestinationSelected: _onTabSelected,
           destinations: const <NavigationDestination>[
             NavigationDestination(
                 icon: Icon(Icons.menu_book_outlined),
@@ -60,6 +63,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 label: 'Progress'),
           ]),
     );
+  }
+
+  static const int _progressTabIndex = 3;
+
+  /// The Progress tab shows time-spent and score data across every lesson — a parent-facing
+  /// summary, not something a child needs to tap into during their own session — so it sits
+  /// behind the same parent gate as the account screen. The other three tabs are the kid's own
+  /// learning area and stay ungated.
+  Future<void> _onTabSelected(int value) async {
+    if (value == _progressTabIndex) {
+      final bool allowed = await showParentGate(context);
+      if (!allowed || !mounted) return;
+    }
+    setState(() => _tab = value);
+  }
+
+  Future<void> _openGated(
+      BuildContext context, WidgetBuilder builder) async {
+    final bool allowed = await showParentGate(context);
+    if (!allowed || !context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: builder));
   }
 
   Widget _buildTab(Child child, VoidCallback reloadChildren) {
