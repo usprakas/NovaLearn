@@ -1,150 +1,156 @@
 # Implementation Status
 
-Last updated: a follow-up session after Phase 4/5/6 (below), covering: two real bugs found by
-actually running the app live for the first time (a `setState`/Future crash, and a Hibernate
-lazy-loading bug masking as a 403 on every lesson-detail request); a visual polish pass; a
-Gemini AI provider adapter (alongside Anthropic) plus fixes for JSON-escaping and truncation
-bugs found testing it live; Phase 6 speech-to-text/TTS (explicitly requested, built, and
-verified live); initial App Store/Play Store submission groundwork (see
-`docs/APP_STORE_PREP.md`); a finishing pass (mobile account-deletion screen, friendlier error
-states with retry, a real code-level accessibility pass that found and fixed two WCAG contrast
-failures and a complete absence of dark-theme support); and — the largest single piece of this
-session — a **multi-grade curriculum expansion explicitly requested by the user, beyond the
-master spec's original Grade-1-Math-only MVP scope**: the catalog now covers Pre-K through
-Grade 6 in both Math and English (17 lessons/grade except Grade 1's original 5), with a real
-per-child grade filter that didn't exist before (every child used to see every lesson regardless
-of age). See "Multi-grade curriculum expansion" in `docs/DEVELOPMENT_PLAN.md` for the full
-picture, including what was and wasn't verified.
+Last updated: a session that took NovaLearn from "runs locally only" to **actually deployed and
+publicly reachable**, plus a real visual-content pass (shapes/clocks/fractions/coordinate grids
+rendered as drawn vector graphics, not just text) and a full visual-identity redesign ("Nova" —
+cosmic violet/orange/yellow/pink, Baloo 2 + Nunito typography). Three real bugs were found and
+fixed by actually using the deployed app, not just by code review — see "Bugs found and fixed"
+below. Backend: 74 unit tests passing. Mobile: 25 tests passing, `flutter analyze` 0 issues. All
+work committed and pushed to `github.com/usprakas/NovaLearn`.
 
-Backend: 74 unit tests passing. Mobile: 10 tests passing, `flutter analyze` 0 issues. All work
-committed and pushed to `github.com/usprakas/NovaLearn`.
+**Live right now:**
+- Backend API: `https://novalearn-ue6u.onrender.com` (Render, Docker-deployed, Postgres via Neon)
+- Web frontend: `https://novalearn-1-yk58.onrender.com` (Render static site) — the one canonical
+  frontend going forward
+- A second frontend copy also exists at `https://usprakas.github.io/NovaLearn/` (GitHub Pages) —
+  deliberately left in place but no longer actively redeployed after this session, per the user's
+  explicit preference for Render as the canonical frontend
 
-## What exists coming into the Phase 4/5/6 session (earlier in this project)
+## What exists coming into this session
 
-Phases 0–3 complete. 58 backend unit tests, 9 mobile tests, both green coming in. The AI tutor and
-homework helper existed but had no content safety filter, only 3 of 5 strategies, no per-child
-rate limiting, and the parent dashboard had no recommended-next-activity field or account-deletion
-path.
+Phases 0–5 complete (see `DEVELOPMENT_PLAN.md`), plus a multi-grade curriculum expansion beyond
+the master spec's original Grade-1-Math MVP scope: Pre-K through Grade 6, Math + English, 17
+lessons/grade (Grade 1 kept its original 5), with real per-child grade filtering. AI tutor/
+homework helper existed with offline deterministic templates plus optional Anthropic/Gemini
+adapters, never exercised against a live key in this environment until this session. Everything
+ran locally only — no deployment existed, and the app had never been visually exercised in a
+browser by anyone before this session.
 
-## What this session did
+## This session's work
 
-### Phase 4 — AI tutor hardening (backend)
+### Visual content (no image assets — everything is drawn)
 
-- **`ContentSafetyFilter`**: a keyword denylist (self-harm, violence, drugs/alcohol, sexual
-  content, weapons, and common PII categories) plus an 800-character response cap. Checked on the
-  child's question *before* any AI call — an unsafe question is refused (`refused: true`) and the
-  AI client is never invoked, so no cost and no unsafe round-trip. Checked again on a real AI
-  response — unsafe or oversized output is discarded in favor of the deterministic offline
-  template, the same path used for an outright provider failure.
-- **Full 5-strategy rotation**: `TutorStrategy` extended from 3 to 5 values
-  (`STEP_BY_STEP, STORY, REAL_LIFE_EXAMPLE, VISUAL_ANALOGY, GUIDED_QUESTION`), selected by
-  `attempt % 5`; added offline templates for the two new strategies.
-  `TutorAnswer`/`HomeworkGuidance` responses gained `suggestedNextActivity` (a pointer at a
-  catalog lesson in the question's subject) and `refused`.
-- **Per-child AI rate limiting**: `AiRateLimitFilter`, extracted shared fixed-window logic into
-  `RedisFixedWindowRateLimiter` (reused by the pre-existing `AuthRateLimitFilter`), keyed by
-  `childId` parsed from the request path via regex, default 20 requests/minute
-  (`AI_RATE_LIMIT_PER_MINUTE`), fails open if Redis is unreachable — same posture as the existing
-  auth limiter.
-- Request body validation tightened: `question`/`questionText` now `@NotBlank @Size(max = 500)`.
-- Added 4 tests to `TutorServiceTest` (9 total) and 2 to `HomeworkServiceTest` (7 total) covering
-  the new strategy count, the refusal path, and treating a real AI response as untrusted output.
+Exercise choices across the curriculum were plain text even where a picture would obviously help
+("which shape has 3 sides?" with no shape shown). Added a text-tag convention
+(`SHAPE:`/`CLOCK:`/`FRACTION:`/`COLOR:`/`SIZE:` prefixes on existing `choice_text` values) parsed
+client-side and rendered as real drawn vector widgets — circles, clock faces, divided fraction
+diagrams, color swatches, relative-size cues — via `CustomPainter`, with no image generation or
+asset pipeline (confirmed earlier in the project that Gemini's free tier hard-blocks image
+generation, `limit: 0`). Migrations `V17`/`V18` tag the existing rows. Coordinate-plane points and
+"the long hand points to N" clock prompts need **no** migration at all — parsed straight out of
+already-existing prompt text via regex.
 
-### Phase 5 — Parent dashboard and hardening (backend + mobile)
+The post-answer feedback card was text-only even for tagged questions. `ExerciseEvaluation` now
+also carries `correctChoiceText` — the correct choice's own tagged text, revealed only in the
+post-grading response (the same place `explanation` already states the answer in prose, so this
+isn't a new disclosure) — so the feedback card shows the same picture the choice list does.
 
-- **Recommended-next-activity**: `ChildDashboard` gained `recommendedNextLessonCode`/
-  `recommendedNextLessonTitle` — `DashboardService.recommendNextLesson` returns the first catalog
-  lesson, in display order, the child hasn't completed (`null`/`null` if every lesson is done).
-  `DashboardController.DashboardResponse` updated to match. Mobile `ChildDashboard` model and
-  `ParentDashboard` widget updated to parse and display it (a "Recommended next" card).
-- **Account deletion**: `ParentAccountRepository.deleteById` + JPA adapter;
-  `AuthService.deleteAccount(parentId, password)` re-confirms the password before deleting;
-  `DELETE /api/v1/auth/me` (authenticated, 204 on success, 401 on a wrong password). No new
-  cleanup code was needed for child data — `child_profiles`/`refresh_tokens` already cascade-delete
-  from `parent_accounts` at the schema level (migrations V1/V3). No mobile UI was added to call
-  this endpoint this pass — backend only.
-- **Correlation-ID request logging**: `CorrelationIdFilter` (new `infrastructure/logging`
-  package) reuses a client-supplied `X-Correlation-Id` header or generates one, puts it in MDC for
-  the duration of the request, echoes it in the response header, and clears it afterward even if
-  the chain throws. Wired first in the Spring Security filter chain (before the rate limiters, so
-  even a rate-limited request's log line carries one). `logging.pattern.level` in `application.yml`
-  updated so the ID actually appears in console output (Spring Boot's documented MDC-in-pattern
-  approach), since no logback config existed before to carry it.
-- **Accessibility**: no new UI code — audited what already exists (every icon-only control already
-  has a text label or tooltip) and documented it honestly in RISKS_AND_TRADEOFFS.md rather than
-  inventing unverifiable changes with no device to test them on.
-- Added 1 test to `DashboardServiceTest` (4 total: recommending the first incomplete lesson), 2 to
-  `AuthServiceTest` (12 total: delete-on-correct-password, refuse-on-wrong-password), and a new
-  3-test `CorrelationIdFilterTest`.
+New files: `mobile/lib/core/widgets/{shape_icon,choice_visual,coordinate_grid,vector_math}.dart`.
 
-### Phase 6 — Future extensions (plan only, per the master spec's own instruction)
+### Bugs found and fixed (by actually using the app, not just reading code)
 
-- Wrote `docs/PHASE_6_PLAN.md`: a per-item implementation plan (shape, new ports/tables, specific
-  blockers, suggested build order) for homework OCR, on-device speech-to-text/TTS, additional
-  subjects/grades, a teacher dashboard, subscription billing, and AWS infrastructure-as-code.
-  Nothing in it was built — every item needs a real external credential, cloud account, or device
-  this environment doesn't have, and the spec explicitly asks for a plan here, not an
-  implementation.
+1. **Stale session dead-ends with no way back to login.** Any 401 from an authenticated request
+   (expired/revoked token, or a dev backend restarting with a new JWT secret) showed a generic
+   "Something went wrong" screen with a "Try again" button that retried the same dead token
+   forever. `NovaLearnApi` now takes an `onUnauthorized` callback — fired only for a 401 on a
+   request that carried a Bearer token (never for a wrong password on login/register) — wired to
+   sign out and fall back to the login screen automatically.
+2. **No committed CORS configuration at all.** The only CORS handling that existed was a
+   "local-only demo, not for commit" patch to `SecurityConfig.java`, hand-reapplied after every
+   local restart and never shipped — so the deployed API would have rejected every cross-origin
+   browser request outright. Replaced with a permanent `CorsConfigurationSource` bean driven by
+   `ALLOWED_ORIGINS` (comma-separated, wildcard-capable), empty/blocked by default.
+3. **Hardcoded port.** Render (and most PaaS hosts) inject a `PORT` env var and route to whatever
+   the app actually binds; the app always listened on 8080. Now `server.port: ${PORT:8080}`.
 
-### Documentation
+### Going live
 
-Updated `DEVELOPMENT_PLAN.md` (Phase 4/5 now ✅, Phase 6 plan-written), `API_SPECIFICATION.md`
-(new/changed endpoint shapes), `SECURITY_AND_CHILD_SAFETY.md` (content safety filter, per-child
-rate limit, account deletion, correlation ID — moved from "known gap" to "implemented" where
-applicable), `RISKS_AND_TRADEOFFS.md` (updated "what's real" table, failure-scenario table,
-accessibility note, revised "what I'd do with more time"), and `TESTING.md` (new test counts and
-classes) to reflect all of the above.
+- **Neon**: real Postgres database, connected via the pooled endpoint with `prepareThreshold=0`
+  (PgBouncer transaction-pooling mode doesn't support Postgres server-side prepared statements,
+  which Hibernate uses by default — this is the standard documented fix).
+- **Render (backend)**: Docker-based web service from the existing `backend/Dockerfile`, no
+  changes needed there. Verified end-to-end against the real deployment: registration, login,
+  child creation, lesson catalog, grading, the new `correctChoiceText` visual feature.
+- **Render (frontend)** and **GitHub Pages (frontend)**: both are the production Flutter web
+  build (`flutter build web`), pushed to dedicated branches (`render-web`, `gh-pages`) since
+  neither host runs a Flutter toolchain itself — the build happens locally/in this environment,
+  the built static output is what gets deployed. GitHub Pages required a `base-href=/NovaLearn/`
+  build (subpath); Render's static site required `base-href=/` (served at its own root).
 
-## Commands actually executed, and their results
+### Visual identity redesign ("Nova")
+
+Replaced generic stock Material styling (single seed-color purple, default type) with a real,
+distinctive design system: hand-picked, **WCAG-2.1-contrast-computed** (not eyeballed) palette —
+cosmic violet `#6D28D9`, nova orange `#FF7A45`, star yellow `#FFC93C`, nova pink `#F472B6` — Baloo
+2 (display/buttons) + Nunito (body) via `google_fonts`, bigger/rounder shapes (20–28px radii), and
+a recurring drawn-sparkle motif (`NovaStar`) tying the "Nova" name to something visual. Applied
+across the auth screen, child picker, lesson list, lesson screen (incl. a celebration
+scale/bounce-in on a correct answer and a brief non-punishing shake on a wrong one, both
+respecting `MediaQuery.disableAnimations`), dashboard badges, tutor/homework headers.
+
+New: a public **landing page** (the app previously had none — straight from nothing to a login
+form) and a **parent gate** (a quick arithmetic challenge) now standing in front of the Progress
+dashboard and Account settings, which were previously one tap away for any child with nothing
+stopping them — a real, previously-unflagged safety gap, not just polish.
+
+Pre-K/Kindergarten/Grade 1 also get a distinct lesson layout: a handful of large, color-washed,
+icon-led tiles instead of a scrolling list with full-sentence descriptions, since a pre-reader is
+choosing by picture and color, not reading a subtitle. Grade 2+ keeps the list.
+
+### Commands actually run, and their results
 
 ```sh
-cd backend && ./mvnw -q compile
-# -> clean compile after each structural change (ChildDashboard field count, new filter, new
-#    endpoint) — run repeatedly through this session, output empty on success as expected
-
-cd backend && ./mvnw -q test -Dtest='CorrelationIdFilterTest,AuthServiceTest' -DfailIfNoTests=false
-# -> first run: 1 error (InvalidUseOfMatchersException — a real mistake in a new test, mixing a
-#    raw matcher with eq() incorrectly); fixed, reran, all green
-
-cd backend && ./mvnw -q clean test -Dtest='!PostgresIntegrationTest' -DfailIfNoTests=false
-# -> 64 unit tests, 0 failures, 0 errors (final run, full suite, after all Phase 4/5 changes)
-
-find target/surefire-reports -name "*.txt" | xargs grep -h "Tests run" | awk ...
-# -> Total tests: 64 Failures: 0 Errors: 0 Skipped: 0
+cd backend && ./mvnw test -Dtest='!PostgresIntegrationTest' -DfailIfNoTests=false
+# -> 74 tests, 0 failures, 0 errors (run repeatedly through the session, after every backend change)
 
 cd mobile && flutter analyze
-# -> "No issues found!" (full project, after the dashboard model/widget changes)
+# -> "No issues found!" (run after every change)
 
 cd mobile && flutter test
-# -> "All tests passed!" (9 tests, unchanged count — no new mobile tests were added this pass)
-```
+# -> 25 tests passing (up from 10 at session start)
 
-No command was run and then assumed to pass without observing its output. The one real mistake
-(an invalid Mockito matcher combination in the first draft of `CorrelationIdFilterTest`) was
-caught by actually running the test, not assumed away.
+cd mobile && flutter build web --base-href=/ --dart-define=API_BASE_URL=https://novalearn-ue6u.onrender.com
+cd mobile && flutter build web --base-href=/NovaLearn/ --dart-define=API_BASE_URL=https://novalearn-ue6u.onrender.com
+# -> both built clean; output pushed to the render-web / gh-pages branches respectively
+
+curl against the live Render backend (register/login/create-child/lessons/grading) with the real
+Origin headers of each live frontend
+# -> every call verified working end-to-end, not assumed from a successful build
+```
 
 ## Known issues / explicitly deferred
 
-- The real Anthropic-backed path has still never been exercised against the live API in this
-  environment (no key provisioned) — the content safety filter's "treat AI output as untrusted"
-  behavior is unit-tested against a mocked client returning deliberately-unsafe text, not against
-  real model output.
-- The content safety filter is a keyword denylist, not comprehensive moderation — see
-  RISKS_AND_TRADEOFFS.md "Known limitations."
-- Per-child AI rate limiting bounds request rate, not dollar spend; no budget cap exists.
-- Account deletion has no mobile UI yet.
-- No Testcontainers-backed integration test covers the new endpoints against a real database (same
-  pre-existing Docker constraint as before).
-- The mobile dashboard/tutor UI changes (recommended-next card, refusal/suggestion states) have
-  been verified only via `flutter analyze`/`flutter test`, never run on a simulator/emulator or
-  device.
-- Phase 6 is a plan only (`docs/PHASE_6_PLAN.md`) — nothing in it is built.
+- **The AI tutor still runs on offline deterministic templates on the live deployment** — no
+  `ANTHROPIC_API_KEY`/`GEMINI_API_KEY` is set on the Render backend yet. A real (free-tier) Gemini
+  key exists from earlier in the project; wiring it into the live deployment is the very next
+  planned step as of this writing.
+- Kid-sized text (18px+, bumped from default ~14–16px Material sizing) only landed on the lesson
+  screen — tutor/homework screens still use default sizing.
+- Tablet responsiveness is auto-wrap grids (`SliverGridDelegateWithMaxCrossAxisExtent`,
+  `Wrap`), not deliberately designed breakpoint layouts for phone vs. tablet vs. desktop.
+- The parent gate has to be solved on every single visit to a gated screen — no "remembered for
+  this session" exemption.
+- No onboarding flow (avatar picker, "meet the tutor") — a child's first run is still the plain
+  name/birthday/grade-level form that existed before this session.
+- No formal `ThemeExtension`/named reusable-component library (`NovaButton`, `TutorBubble`, etc.)
+  — the design system is real and consistently applied, but lives as per-screen widget code
+  rather than extracted, independently-testable named components.
+- The mobile app has still never been run on a physical iOS/Android device or simulator/emulator
+  in this environment — verified only in Chrome, both locally and against the live deployments.
+- Email verification was explicitly scoped and then explicitly deferred at the user's request
+  ("hold off for now") — registration still accepts any syntactically-valid, unverified email.
+- Render's free tier spins the backend down after ~15 minutes idle; the next request after that
+  takes 30–60s to wake it back up. Known tradeoff of the free tier, not a bug.
+- Curriculum content still has not been reviewed by anyone with elementary-education
+  subject-matter expertise (carried over from before this session — still applies).
 
 ## Exact next action
 
-Core MVP (Phases 0–5) is complete and green within this environment's constraints. The next
-available real action is either: (a) get this reviewed/committed and pushed, or (b) if a real
-Anthropic API key, Docker, a device/emulator, or AWS credentials become available, use them to
-close the specific gaps listed above (real-model content-safety verification, Testcontainers
-Postgres run, a manual mobile run-through) before starting any Phase 6 work, which should not
-begin until explicitly requested per the master spec's own instruction.
+In priority order, as scoped with the user at the end of this session:
+1. Set `GEMINI_API_KEY` on the Render backend so the live tutor/homework helper gives real AI
+   responses instead of offline templates.
+2. Onboarding redesign (avatar picker, "meet the tutor" flow) and a friendlier tutor screen
+   (suggested-question chips instead of requiring typing, for children who can't type yet).
+3. Extend the kid-sized-text treatment to the tutor/homework screens.
+4. Consider a "remembered for this app session" exemption on the parent gate so a parent isn't
+   re-solving a math problem every time they check the dashboard.
