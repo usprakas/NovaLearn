@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/nova_star.dart';
-import '../../auth/presentation/auth_screen.dart';
 
 /// What a visitor sees first, before signing in — previously the app went straight from nothing
 /// to the login form with no explanation of what NovaLearn even is. Purely presentational: it
-/// owns no state and touches no API; its only job is to hand off to the unchanged [AuthScreen].
+/// owns no state and touches no API; [onGetStarted] is called to reveal the sign-in form, driven
+/// by the caller rather than a `Navigator.push` here — see app.dart for why that distinction
+/// matters (a pushed route doesn't react to the session-based screen swap underneath it).
 class LandingScreen extends StatelessWidget {
-  const LandingScreen({super.key});
+  const LandingScreen({super.key, required this.onGetStarted});
+  final VoidCallback onGetStarted;
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +19,7 @@ class LandingScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            _Hero(onGetStarted: () => _openAuth(context)),
+            _Hero(onGetStarted: onGetStarted),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
               child: Center(
@@ -79,7 +81,7 @@ class LandingScreen extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 16),
                   FilledButton(
-                      onPressed: () => _openAuth(context),
+                      onPressed: onGetStarted,
                       child: const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16),
                           child: Text('Get started'))),
@@ -91,9 +93,6 @@ class LandingScreen extends StatelessWidget {
       ),
     );
   }
-
-  void _openAuth(BuildContext context) => Navigator.of(context)
-      .push(MaterialPageRoute<void>(builder: (_) => const AuthScreen()));
 }
 
 class _Hero extends StatelessWidget {
