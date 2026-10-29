@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/voice/voice_assistant.dart';
 import '../../../core/widgets/error_state.dart';
+import '../../../core/widgets/nova_star.dart';
 import '../../children/domain/child.dart';
 import '../domain/homework_guidance.dart';
 import '../domain/homework_repository.dart';
@@ -98,7 +100,11 @@ class _HomeworkTabState extends State<HomeworkTab> {
   Widget build(BuildContext context) => ListView(
       padding: const EdgeInsets.all(24),
       children: <Widget>[
-        Text('Homework helper', style: Theme.of(context).textTheme.headlineSmall),
+        Row(children: <Widget>[
+          const NovaStar(size: 22),
+          const SizedBox(width: 8),
+          Text('Homework helper', style: Theme.of(context).textTheme.headlineSmall),
+        ]),
         const SizedBox(height: 8),
         const Text(
             'Photo scanning is not available yet, so type the question exactly as it '
@@ -129,8 +135,12 @@ class _HomeworkTabState extends State<HomeworkTab> {
               _guidance!.steps.length,
               (int index) => Card(
                   child: ListTile(
-                      leading: CircleAvatar(child: Text('${index + 1}')),
-                      title: Text(_guidance!.steps[index])))),
+                      leading: CircleAvatar(
+                          backgroundColor: AppTheme.cosmicViolet,
+                          foregroundColor: Colors.white,
+                          child: Text('${index + 1}',
+                              style: const TextStyle(fontWeight: FontWeight.w800))),
+                      title: Text(_guidance!.steps[index], style: const TextStyle(fontSize: 16))))),
           const SizedBox(height: 8),
           Card(
               color: Theme.of(context).colorScheme.primaryContainer,

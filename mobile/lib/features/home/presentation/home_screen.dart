@@ -71,6 +71,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: child,
             lessonsRepository: api,
             exerciseRepository: api,
+            dashboardRepository: api,
             onLessonCompleted: reloadChildren);
       case 1:
         return TutorTab(
