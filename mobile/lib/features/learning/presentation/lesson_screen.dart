@@ -111,6 +111,9 @@ class _LessonScreenState extends State<LessonScreen> {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final int total = widget.lesson.exercises.length;
     final Widget? promptVisual = _promptVisual(scheme.primary);
+    final bool reduceMotion = MediaQuery.of(context).disableAnimations;
+    final Duration transitionDuration =
+        reduceMotion ? Duration.zero : const Duration(milliseconds: 380);
     return Scaffold(
       appBar: AppBar(title: Text(widget.lesson.title)),
       body: ListView(
@@ -140,7 +143,11 @@ class _LessonScreenState extends State<LessonScreen> {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text(_current.prompt, style: Theme.of(context).textTheme.titleLarge),
+                        Text(_current.prompt,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontSize: 26, height: 1.25)),
                         if (promptVisual != null) ...<Widget>[
                           const SizedBox(height: 12),
                           Center(child: promptVisual),
@@ -157,7 +164,8 @@ class _LessonScreenState extends State<LessonScreen> {
                               final ParsedChoiceVisual? visual =
                                   parseChoiceVisual(_current.choices[choice]);
                               final TextStyle labelStyle = TextStyle(
-                                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500);
+                                  fontSize: 19,
+                                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600);
                               return Padding(
                                   padding: const EdgeInsets.only(top: 8),
                                   child: Material(
@@ -166,6 +174,8 @@ class _LessonScreenState extends State<LessonScreen> {
                                           : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
                                       borderRadius: BorderRadius.circular(14),
                                       child: RadioListTile<int>(
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                           shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(14)),
                                           title: visual == null
@@ -179,83 +189,143 @@ class _LessonScreenState extends State<LessonScreen> {
                             })))
                       ]))),
           const SizedBox(height: 20),
-          if (_evaluation == null)
-            FilledButton(
-                onPressed: _selectedChoice == null || _submitting ? null : _submit,
-                child: _submitting
-                    ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                    : const Text('Submit answer'))
-          else ...<Widget>[
-            Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(26),
-                  gradient: _evaluation!.correct
-                      ? const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: <Color>[AppTheme.starYellow, AppTheme.novaOrange])
-                      : null,
-                  color: _evaluation!.correct ? null : scheme.errorContainer,
-                ),
-                child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          _evaluation!.correct
-                              ? const NovaStar(size: 30, color: AppTheme.deepSpace)
-                              : Icon(Icons.lightbulb_rounded, color: scheme.onErrorContainer),
-                          const SizedBox(width: 12),
-                          Expanded(
-                              child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    Text(
-                                        _evaluation!.correct
-                                            ? _celebration()
-                                            : "Not quite — let's see why",
-                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                            color: _evaluation!.correct
-                                                ? AppTheme.deepSpace
-                                                : scheme.onErrorContainer)),
-                                    const SizedBox(height: 6),
-                                    Text(_evaluation!.explanation),
-                                    if (_evaluation!.hint != null) ...<Widget>[
-                                      const SizedBox(height: 8),
-                                      Text('Hint: ${_evaluation!.hint}',
-                                          style: Theme.of(context).textTheme.bodySmall),
-                                    ],
-                                    if (_correctChoiceVisual() != null) ...<Widget>[
-                                      const SizedBox(height: 12),
-                                      Row(children: <Widget>[
-                                        ChoiceVisualIcon(
-                                            visual: _correctChoiceVisual()!,
-                                            size: 36,
-                                            color: _evaluation!.correct
-                                                ? scheme.onPrimaryContainer
-                                                : scheme.onErrorContainer),
-                                        const SizedBox(width: 10),
-                                        Text('The answer: ${_correctChoiceVisual()!.label}',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .labelLarge
-                                                ?.copyWith(
-                                                    color: _evaluation!.correct
-                                                        ? scheme.onPrimaryContainer
-                                                        : scheme.onErrorContainer)),
-                                      ]),
-                                    ],
-                                  ])),
-                        ]))),
-            const SizedBox(height: 12),
-            FilledButton(
-                onPressed: _next,
-                child: Text(_isLast ? 'Finish lesson' : 'Next question')),
-          ],
+          AnimatedSwitcher(
+            duration: transitionDuration,
+            switchInCurve: _evaluation?.correct == true ? Curves.elasticOut : Curves.easeOutCubic,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (Widget child, Animation<double> animation) =>
+                FadeTransition(opacity: animation, child: ScaleTransition(scale: animation, child: child)),
+            child: _evaluation == null
+                ? KeyedSubtree(
+                    key: const ValueKey<String>('submit'),
+                    child: FilledButton(
+                        onPressed: _selectedChoice == null || _submitting ? null : _submit,
+                        child: _submitting
+                            ? const SizedBox.square(
+                                dimension: 20,
+                                child:
+                                    CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                            : const Text('Submit answer')))
+                : KeyedSubtree(
+                    key: ValueKey<ExerciseEvaluation>(_evaluation!),
+                    child: _buildFeedback(context, scheme, reduceMotion)),
+          ),
         ],
       ),
     );
+  }
+
+  Widget _buildFeedback(BuildContext context, ColorScheme scheme, bool reduceMotion) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
+      _ShakeOnMount(
+          enabled: !reduceMotion && !_evaluation!.correct,
+          child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(26),
+                gradient: _evaluation!.correct
+                    ? const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: <Color>[AppTheme.starYellow, AppTheme.novaOrange])
+                    : null,
+                color: _evaluation!.correct ? null : scheme.errorContainer,
+              ),
+              child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        _evaluation!.correct
+                            ? const NovaStar(size: 30, color: AppTheme.deepSpace)
+                            : Icon(Icons.lightbulb_rounded, color: scheme.onErrorContainer),
+                        const SizedBox(width: 12),
+                        Expanded(
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                      _evaluation!.correct
+                                          ? _celebration()
+                                          : "Not quite — let's see why",
+                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                          color: _evaluation!.correct
+                                              ? AppTheme.deepSpace
+                                              : scheme.onErrorContainer)),
+                                  const SizedBox(height: 6),
+                                  Text(_evaluation!.explanation,
+                                      style: const TextStyle(fontSize: 17, height: 1.3)),
+                                  if (_evaluation!.hint != null) ...<Widget>[
+                                    const SizedBox(height: 8),
+                                    Text('Hint: ${_evaluation!.hint}',
+                                        style: Theme.of(context).textTheme.bodySmall),
+                                  ],
+                                  if (_correctChoiceVisual() != null) ...<Widget>[
+                                    const SizedBox(height: 12),
+                                    Row(children: <Widget>[
+                                      ChoiceVisualIcon(
+                                          visual: _correctChoiceVisual()!,
+                                          size: 36,
+                                          color: _evaluation!.correct
+                                              ? scheme.onPrimaryContainer
+                                              : scheme.onErrorContainer),
+                                      const SizedBox(width: 10),
+                                      Text('The answer: ${_correctChoiceVisual()!.label}',
+                                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                              color: _evaluation!.correct
+                                                  ? scheme.onPrimaryContainer
+                                                  : scheme.onErrorContainer)),
+                                    ]),
+                                  ],
+                                ])),
+                      ])))),
+      const SizedBox(height: 12),
+      FilledButton(
+          onPressed: _next, child: Text(_isLast ? 'Finish lesson' : 'Next question')),
+    ]);
+  }
+}
+
+/// A brief, gentle horizontal shake on mount — used only for a wrong answer, and only when
+/// [enabled] (i.e. the OS's reduce-motion setting isn't on). Small amplitude by design: this is
+/// meant to read as "hm, not quite," not as a punishing or alarming effect for a young child.
+class _ShakeOnMount extends StatefulWidget {
+  const _ShakeOnMount({required this.enabled, required this.child});
+  final bool enabled;
+  final Widget child;
+
+  @override
+  State<_ShakeOnMount> createState() => _ShakeOnMountState();
+}
+
+class _ShakeOnMountState extends State<_ShakeOnMount> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 360));
+  late final Animation<double> _offset = TweenSequence<double>(<TweenSequenceItem<double>>[
+    TweenSequenceItem<double>(tween: Tween<double>(begin: 0, end: -8), weight: 1),
+    TweenSequenceItem<double>(tween: Tween<double>(begin: -8, end: 6), weight: 1),
+    TweenSequenceItem<double>(tween: Tween<double>(begin: 6, end: -4), weight: 1),
+    TweenSequenceItem<double>(tween: Tween<double>(begin: -4, end: 0), weight: 1),
+  ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.enabled) _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.child;
+    return AnimatedBuilder(
+        animation: _offset,
+        builder: (BuildContext context, Widget? child) =>
+            Transform.translate(offset: Offset(_offset.value, 0), child: child),
+        child: widget.child);
   }
 }
