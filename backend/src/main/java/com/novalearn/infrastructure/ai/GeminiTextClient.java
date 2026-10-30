@@ -9,6 +9,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,8 +32,10 @@ public final class GeminiTextClient implements AiTextClient {
   // out from under this key during development (gemini-2.5-flash and gemini-2.0-flash both
   // returned 404 "no longer available" even though the former still appears in /v1beta/models).
   // A lite model is intentionally chosen over a full/pro model — tutor/homework responses are
-  // capped at 500 output tokens for short, simple Grade 1-level explanations.
-  private static final String MODEL = "gemini-flash-lite-latest";
+  // used first: fast and cheap. On the free tier each model has its own rate limits, so if the lite
+  // model fails (rate-limited, overloaded, slow, or no text) the request is retried once on the
+  // full flash model before the caller falls back to its offline template.
+  private static final List<String> MODELS = List.of("gemini-flash-lite-latest", "gemini-flash-latest");
 
   private static final Pattern TEXT_FIELD =
       Pattern.compile("\"text\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"", Pattern.DOTALL);
@@ -46,44 +49,65 @@ public final class GeminiTextClient implements AiTextClient {
 
   @Override
   public String complete(String prompt) {
-    return extractText(generate("{\"contents\":[{\"parts\":[{\"text\":\"" + escape(prompt) + "\"}]}],"
-        + "\"generationConfig\":{\"maxOutputTokens\":500}}"));
+    // 1024 tokens: a worked homework solution (several steps with math) is longer than the old
+    // hint-only replies; callers still cap what reaches the child.
+    return generate("{\"contents\":[{\"parts\":[{\"text\":\"" + escape(prompt) + "\"}]}],"
+        + "\"generationConfig\":{\"maxOutputTokens\":1024}}");
   }
 
   public String readImage(String prompt, byte[] image, String mimeType) {
     // Low temperature: this is transcription, not generation — the model should copy what is on
     // the page, not get creative with it.
-    String responseBody = generate("{\"contents\":[{\"parts\":[{\"text\":\"" + escape(prompt) + "\"},"
+    return generate("{\"contents\":[{\"parts\":[{\"text\":\"" + escape(prompt) + "\"},"
         + "{\"inline_data\":{\"mime_type\":\"" + mimeType + "\",\"data\":\""
         + Base64.getEncoder().encodeToString(image) + "\"}}]}],"
         + "\"generationConfig\":{\"maxOutputTokens\":300,\"temperature\":0}}");
-    // Unlike complete(), never fall back to the raw body: a safety-blocked or empty response would
-    // otherwise surface as JSON in the child's question box.
+  }
+
+  /** Tries each model in turn; returns the first response's text, or throws the last failure. */
+  private String generate(String body) {
+    IllegalStateException lastFailure = null;
+    for (String model : MODELS) {
+      try {
+        return textOf(call(model, body));
+      } catch (IllegalStateException failure) {
+        lastFailure = failure;
+      }
+    }
+    throw lastFailure;
+  }
+
+  /**
+   * Never falls back to the raw body (unlike {@link #extractText}): a safety-blocked or truncated
+   * response with no text part would otherwise reach the child as JSON.
+   */
+  private String textOf(String responseBody) {
     Matcher matcher = TEXT_FIELD.matcher(responseBody);
     if (!matcher.find()) {
-      throw new IllegalStateException("Gemini returned no text for the image");
+      throw new IllegalStateException("Gemini returned no text");
     }
     return unescapeJson(matcher.group(1));
   }
 
-  private String generate(String body) {
+  private String call(String model, String body) {
     HttpRequest request = HttpRequest.newBuilder(URI.create(
-            "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent?key=" + apiKey))
+            "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey))
         .header("content-type", "application/json")
-        .timeout(Duration.ofSeconds(30))
+        // Short enough that a stalled first model still leaves time for the fallback model.
+        .timeout(Duration.ofSeconds(25))
         .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
         .build();
     try {
       HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
       if (response.statusCode() != 200) {
-        throw new IllegalStateException("Gemini API returned status " + response.statusCode());
+        throw new IllegalStateException("Gemini " + model + " returned status " + response.statusCode());
       }
       return response.body();
     } catch (IOException | InterruptedException e) {
       if (e instanceof InterruptedException) {
         Thread.currentThread().interrupt();
       }
-      throw new IllegalStateException("Gemini API call failed", e);
+      throw new IllegalStateException("Gemini " + model + " call failed: " + e.getClass().getSimpleName(), e);
     }
   }
 

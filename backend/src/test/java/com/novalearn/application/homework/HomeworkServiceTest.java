@@ -198,4 +198,20 @@ class HomeworkServiceTest {
     assertThat(guidance.workedSteps()).isEmpty();
     assertThat(guidance.finalAnswer()).isNull();
   }
+
+  @Test
+  void whenTheSolverFailsItSaysSoInsteadOfEchoingTheQuestion() {
+    ChildProfileRepository children = mock(ChildProfileRepository.class);
+    AiTextClient aiClient = mock(AiTextClient.class);
+    when(children.belongsToParent(any(), any())).thenReturn(true);
+    when(aiClient.complete(any())).thenThrow(new IllegalStateException("Gemini returned status 429"));
+    String question = "A streaming service charges a flat fee of $12 per month plus $3 per movie.";
+
+    HomeworkGuidance guidance = new HomeworkService(children, Optional.of(aiClient))
+        .explain(UUID.randomUUID(), UUID.randomUUID(), question);
+
+    assertThat(guidance.steps()).noneMatch(step -> step.contains("streaming service"));
+    assertThat(guidance.steps().get(0)).contains("couldn't be reached");
+    assertThat(guidance.finalHint()).contains("again");
+  }
 }

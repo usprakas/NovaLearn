@@ -15,6 +15,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class HomeworkService {
+
+  private static final Logger log = LoggerFactory.getLogger(HomeworkService.class);
 
   private final ChildProfileRepository children;
   private final Optional<AiTextClient> aiClient;
@@ -53,7 +57,7 @@ public class HomeworkService {
     return aiClient
         .flatMap(client -> tryComplete(client, buildPrompt(question, grade)))
         .map(this::fromAiResponse)
-        .orElseGet(() -> offlineGuidance(question));
+        .orElseGet(this::offlineGuidance);
   }
 
   /**
@@ -65,10 +69,13 @@ public class HomeworkService {
     try {
       String response = client.complete(prompt);
       if (response == null || !ContentSafetyFilter.isSafe(response)) {
+        log.warn("Homework AI response was empty or failed the safety filter; using offline guidance");
         return Optional.empty();
       }
       return Optional.of(response);
     } catch (RuntimeException aiCallFailed) {
+      // The reason only (status/exception type) — never the child's question or the response.
+      log.warn("Homework AI call failed; using offline guidance: {}", aiCallFailed.getMessage());
       return Optional.empty();
     }
   }
@@ -170,12 +177,19 @@ public class HomeworkService {
     return text.length() <= max ? text : text.substring(0, max - 3).trim() + "...";
   }
 
-  private HomeworkGuidance offlineGuidance(String question) {
+  /**
+   * Used when no AI provider is configured or the call failed. It can't solve anything, so it says
+   * so plainly and gives general strategies — it deliberately doesn't echo the question back, which
+   * read as "just repeating the question" rather than help.
+   */
+  private HomeworkGuidance offlineGuidance() {
     List<String> steps = List.of(
-        "Read the question slowly and underline any numbers or key words: \"" + question + "\"",
-        "Figure out what the question is actually asking you to find.",
-        "Write down what you already know, then try one small step at a time.",
-        "Check your answer by reading the question again to see if it makes sense.");
-    return new HomeworkGuidance(steps, "These are guided steps, not the final answer - that way the understanding sticks!");
+        "Our step-by-step solver couldn't be reached just now, so here are some ways to start on your own.",
+        "Figure out what the question wants you to find, and circle the numbers you'll need.",
+        "Try one small step at a time, writing down what you work out as you go.",
+        "When you have an answer, read the question again to check it makes sense.");
+    return new HomeworkGuidance(steps,
+        "Tap \"Help me understand\" again in a minute to see the full worked solution.");
   }
+
 }
