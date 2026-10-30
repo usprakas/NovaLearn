@@ -54,26 +54,46 @@ void main() {
     expect(offline.isWorkedSolution, isFalse);
   });
 
-  testWidgets('shows each step with its math and the final answer', (WidgetTester tester) async {
-    await _ask(
-        tester,
-        const HomeworkGuidance(
-          steps: <String>['unused'],
-          finalHint: 'Answer: \$27. You turned words into math!',
-          workedSteps: <WorkedStep>[
-            WorkedStep(explanation: 'Each movie costs \$3, so m movies cost 3 x m.', work: 'C = 12 + 3m'),
-            WorkedStep(explanation: 'Put in 5 for m.', work: 'C = 12 + 3 x 5 = 27'),
-          ],
-          finalAnswer: '\$27',
-        ));
+  const HomeworkGuidance solved = HomeworkGuidance(
+    steps: <String>['unused'],
+    finalHint: 'Answer: \$27. You turned words into math!',
+    workedSteps: <WorkedStep>[
+      WorkedStep(explanation: 'Each movie costs \$3, so m movies cost 3 x m.', work: 'C = 12 + 3m'),
+      WorkedStep(explanation: 'Put in 5 for m.', work: 'C = 12 + 3 x 5 = 27'),
+    ],
+    finalAnswer: '\$27',
+  );
+
+  testWidgets('reveals one step at a time, and the answer only when asked', (WidgetTester tester) async {
+    await _ask(tester, solved);
 
     expect(find.text("Let's solve it together"), findsOneWidget);
     expect(find.text('C = 12 + 3m'), findsOneWidget);
+    expect(find.text('C = 12 + 3 x 5 = 27'), findsNothing);
+    expect(find.text('\$27'), findsNothing);
+
+    await tester.tap(find.text('Show next step (2 of 2)'));
+    await tester.pumpAndSettle();
     expect(find.text('C = 12 + 3 x 5 = 27'), findsOneWidget);
+    expect(find.text('\$27'), findsNothing);
+
+    await tester.tap(find.text('Show answer'));
+    await tester.pumpAndSettle();
     expect(find.text('\$27'), findsOneWidget);
     // The tip is shown on its own, without repeating the answer prefix.
     expect(find.text('You turned words into math!'), findsOneWidget);
+    expect(find.text('Show everything'), findsNothing);
     expect(find.text('unused'), findsNothing);
+  });
+
+  testWidgets('"Show everything" reveals every step and the answer at once', (WidgetTester tester) async {
+    await _ask(tester, solved);
+
+    await tester.tap(find.text('Show everything'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('C = 12 + 3 x 5 = 27'), findsOneWidget);
+    expect(find.text('\$27'), findsOneWidget);
   });
 
   testWidgets('falls back to plain steps when there is no worked solution', (WidgetTester tester) async {

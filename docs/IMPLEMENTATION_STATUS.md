@@ -163,7 +163,9 @@ Origin headers of each live frontend
   token was rejected by `/auth/refresh` (registration's worked). Fixed; guarded by a test.
 - **Homework help now shows a worked solution** (each step's explanation + its math, then the
   answer), replacing the earlier "guiding steps, never the answer" design at the product owner's
-  request. Math correctness depends on the model (a lite Gemini model; the prompt asks it to
+  request. The solution is revealed a step at a time ("Show next step", then "Show answer"; a
+  "Show everything" link for parents) so a child tries each step instead of copying the answer.
+  Math correctness depends on the model (a lite Gemini model; the prompt asks it to
   double-check) and hasn't been reviewed by an educator. On desktop browsers "Take a photo" now
   opens an in-app webcam view (desktop browsers ignore the file input's camera hint).
 - **Homework photo scanning is live** (Take a photo / Choose a photo on the Homework tab →

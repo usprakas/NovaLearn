@@ -33,6 +33,11 @@ class _HomeworkTabState extends State<HomeworkTab> {
   final TextEditingController _questionController = TextEditingController();
   final VoiceAssistant _voice = VoiceAssistant();
   HomeworkGuidance? _guidance;
+
+  /// Worked solutions are revealed one step at a time, then the answer, so a child tries each step
+  /// before seeing it rather than copying the answer straight away. Reset for every new solution.
+  int _revealedSteps = 1;
+  bool _answerRevealed = false;
   bool _loading = false;
   bool _scanning = false;
   bool _listening = false;
@@ -142,7 +147,11 @@ class _HomeworkTabState extends State<HomeworkTab> {
       final HomeworkGuidance guidance =
           await widget.homeworkRepository.explain(widget.token, widget.child.id, question);
       if (!mounted) return;
-      setState(() => _guidance = guidance);
+      setState(() {
+        _guidance = guidance;
+        _revealedSteps = 1;
+        _answerRevealed = false;
+      });
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = friendlyErrorMessage(error));
@@ -232,38 +241,78 @@ class _HomeworkTabState extends State<HomeworkTab> {
     final String tip = guidance.finalHint.startsWith(answerPrefix)
         ? guidance.finalHint.substring(answerPrefix.length)
         : guidance.finalHint;
+    final int total = guidance.workedSteps.length;
+    final int shown = _revealedSteps.clamp(1, total);
+    final bool allStepsShown = shown >= total;
+    // Read aloud only what is on screen, so it never gives away a hidden step or the answer.
     final String spoken = <String>[
-      for (final WorkedStep step in guidance.workedSteps)
+      for (final WorkedStep step in guidance.workedSteps.take(shown))
         step.work == null ? step.explanation : '${step.explanation} ${step.work}',
-      'The answer is $answer.',
-      tip,
+      if (_answerRevealed) ...<String>['The answer is $answer.', tip],
     ].join(' ');
     return <Widget>[
-      Text("Let's solve it together", style: Theme.of(context).textTheme.titleMedium),
+      Row(children: <Widget>[
+        Expanded(
+            child: Text("Let's solve it together", style: Theme.of(context).textTheme.titleMedium)),
+        if (!_answerRevealed)
+          TextButton(
+            onPressed: () => setState(() {
+              _revealedSteps = total;
+              _answerRevealed = true;
+            }),
+            child: const Text('Show everything'),
+          ),
+      ]),
       const SizedBox(height: 8),
       ...List<Widget>.generate(
-          guidance.workedSteps.length,
+          shown,
           (int index) => _stepCard(context, index, guidance.workedSteps[index].explanation,
               guidance.workedSteps[index].work)),
       const SizedBox(height: 8),
-      Card(
-        color: AppTheme.cosmicViolet,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Row(children: <Widget>[
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 12),
-            const Text('Answer', style: TextStyle(color: Colors.white70, fontSize: 16)),
-            const SizedBox(width: 12),
-            Expanded(
-                child: SelectableText(answer,
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800))),
-          ]),
+      if (!allStepsShown)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.tonalIcon(
+            onPressed: () => setState(() => _revealedSteps = shown + 1),
+            icon: const Icon(Icons.arrow_downward),
+            label: Text('Show next step (${shown + 1} of $total)'),
+          ),
+        )
+      else if (!_answerRevealed)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: () => setState(() => _answerRevealed = true),
+            icon: const Icon(Icons.check_circle_outline),
+            label: const Text('Show answer'),
+          ),
+        )
+      else
+        Card(
+          color: AppTheme.cosmicViolet,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(children: <Widget>[
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 12),
+              const Text('Answer', style: TextStyle(color: Colors.white70, fontSize: 16)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: SelectableText(answer,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800))),
+            ]),
+          ),
         ),
-      ),
       const SizedBox(height: 8),
-      _tipCard(context, tip, spoken),
+      _tipCard(
+          context,
+          _answerRevealed
+              ? tip
+              : allStepsShown
+                  ? 'What do you think the answer is? Work it out, then tap "Show answer" to check.'
+                  : 'Try this step yourself first, then show the next one.',
+          spoken),
     ];
   }
 
