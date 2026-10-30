@@ -151,10 +151,12 @@ class HomeworkServiceTest {
     HomeworkGuidance guidance = serviceAnswering("""
         1. STEP: Distance from zero is the absolute value. | |-4| = 4
         2) Step 2: Add the distances. | 4 + 3 = 7
+        STEP: Say the answer out loud. |
         Final Answer: 7
         """).explain(UUID.randomUUID(), UUID.randomUUID(), "What is |-4| + |3|?");
 
-    assertThat(guidance.workedSteps()).extracting(WorkedStep::work).containsExactly("|-4| = 4", "4 + 3 = 7");
+    assertThat(guidance.workedSteps()).extracting(WorkedStep::work).containsExactly("|-4| = 4", "4 + 3 = 7", null);
+    assertThat(guidance.workedSteps().get(2).explanation()).isEqualTo("Say the answer out loud.");
     assertThat(guidance.finalAnswer()).isEqualTo("7");
   }
 

@@ -141,7 +141,8 @@ public class HomeworkService {
       Matcher ans = ANSWER_LINE.matcher(line);
       Matcher tipLine = TIP_LINE.matcher(line);
       if (step.matches() && worked.size() < MAX_STEPS) {
-        String body = step.group(1).trim();
+        // A step with no math sometimes arrives with a dangling separator ("... friends. |").
+        String body = step.group(1).trim().replaceFirst("\\s*\\|\\s*$", "");
         // First " | " separates explanation from work, so math like |x| inside the work survives.
         int bar = body.indexOf(" | ");
         String explanation = (bar >= 0 ? body.substring(0, bar) : body).trim();
