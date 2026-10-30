@@ -138,6 +138,12 @@ Origin headers of each live frontend
   in this environment — verified only in Chrome, both locally and against the live deployments.
 - Email verification was explicitly scoped and then explicitly deferred at the user's request
   ("hold off for now") — registration still accepts any syntactically-valid, unverified email.
+- ~~Rate limiting was silently off in production~~ — the live deployment has no Redis, and the
+  limiter failed open, so auth/AI limits were never enforced and the Redis health indicator kept
+  `/actuator/health` at `DOWN` (503). Fixed: in-process fallback counter when Redis is unreachable
+  (exact for the single Render instance), Redis excluded from health, and a 429 that was
+  surfacing as 403 (`sendError` → `/error` → Spring Security) now written directly. Verified live:
+  health `UP`, 11th login attempt in a minute gets 429.
 - Render's free tier spins the backend down after ~15 minutes idle; the next request after that
   takes 30–60s to wake it back up. Known tradeoff of the free tier, not a bug.
 - Curriculum content still has not been reviewed by anyone with elementary-education
