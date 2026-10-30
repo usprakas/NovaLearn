@@ -7,7 +7,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -37,7 +36,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     }
     String key = "ratelimit:auth:" + clientKey(request) + ":" + currentMinuteBucket();
     if (!limiter.tryAcquire(key, limitPerMinute, Duration.ofMinutes(1))) {
-      response.sendError(HttpStatus.TOO_MANY_REQUESTS.value(), "Too many requests, please try again later");
+      TooManyRequestsResponse.write(response);
       return;
     }
     chain.doFilter(request, response);

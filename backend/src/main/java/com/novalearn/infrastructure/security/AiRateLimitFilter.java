@@ -9,7 +9,6 @@ import java.time.Duration;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -47,7 +46,7 @@ public class AiRateLimitFilter extends OncePerRequestFilter {
     String childId = matcher.group(1);
     String key = "ratelimit:ai:" + childId + ":" + currentMinuteBucket();
     if (!limiter.tryAcquire(key, limitPerMinute, Duration.ofMinutes(1))) {
-      response.sendError(HttpStatus.TOO_MANY_REQUESTS.value(), "Too many requests, please try again later");
+      TooManyRequestsResponse.write(response);
       return;
     }
     chain.doFilter(request, response);
