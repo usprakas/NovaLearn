@@ -146,6 +146,8 @@ Origin headers of each live frontend
   health `UP`, 11th login attempt in a minute gets 429.
 - Render's free tier spins the backend down after ~15 minutes idle; the next request after that
   takes 30–60s to wake it back up. Known tradeoff of the free tier, not a bug.
+  Mitigated by `.github/workflows/keep-alive.yml` (health ping every 10 min) and a wake-up ping
+  the app sends on open, plus a branded HTML splash while Flutter loads.
 - Curriculum content still has not been reviewed by anyone with elementary-education
   subject-matter expertise (carried over from before this session — still applies).
 
