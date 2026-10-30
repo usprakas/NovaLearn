@@ -112,6 +112,10 @@ cd mobile && flutter test
 cd mobile && flutter build web --base-href=/ --dart-define=API_BASE_URL=https://novalearn-ue6u.onrender.com
 cd mobile && flutter build web --base-href=/NovaLearn/ --dart-define=API_BASE_URL=https://novalearn-ue6u.onrender.com
 # -> both built clean; output pushed to the render-web / gh-pages branches respectively
+# After adding/removing a Flutter plugin, run `flutter clean` before `flutter build web`: an
+# incremental build can reuse a stale web plugin registrant and ship without the new plugin's web
+# implementation (this happened with image_picker — every photo pick threw on web until a clean
+# rebuild).
 
 curl against the live Render backend (register/login/create-child/lessons/grading) with the real
 Origin headers of each live frontend
