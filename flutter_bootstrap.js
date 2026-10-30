@@ -35,8 +35,9 @@ if (!window._flutter) {
 }
 _flutter.buildConfig = {"engineRevision":"5a2a6a42cce67f965cf540fcecf616faca624aa1","builds":[{"compileTarget":"dart2js","renderer":"canvaskit","mainJsPath":"main.dart.js"},{}]};
 
-_flutter.loader.load({
-  serviceWorkerSettings: {
-    serviceWorkerVersion: "3250590522" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
-  }
-});
+
+// Deliberately no serviceWorkerSettings. Flutter's service worker is deprecated: the build now
+// emits a stub that only unregisters itself, so registering it on every page load does nothing
+// useful. Render serves the app files with revalidating cache headers, which is all the caching
+// this app needs.
+_flutter.loader.load();
