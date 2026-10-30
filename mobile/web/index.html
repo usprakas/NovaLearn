@@ -18,21 +18,51 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="NovaLearn — AI-guided math and reading for Pre-K through Grade 6.">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="novalearn_mobile">
+  <meta name="apple-mobile-web-app-title" content="NovaLearn">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>novalearn_mobile</title>
+  <title>NovaLearn</title>
+  <style>
+    /* Shown instantly while Flutter downloads (~3MB) and boots, instead of a blank page. */
+    html, body { margin: 0; height: 100%; background: #1e1b2e; }
+    #nova-splash {
+      position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 18px; color: #fff;
+      background: linear-gradient(110deg, #1e1b2e 0%, #3b2a6b 55%, #6d28d9 100%);
+      font: 600 22px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif; transition: opacity .3s;
+    }
+    #nova-splash .star { width: 56px; height: 56px; animation: nova-pulse 1.4s ease-in-out infinite; }
+    #nova-splash .hint { font-weight: 400; font-size: 14px; opacity: .75; }
+    @keyframes nova-pulse { 50% { transform: scale(.82) rotate(20deg); opacity: .7; } }
+    @media (prefers-reduced-motion: reduce) { #nova-splash .star { animation: none; } }
+  </style>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <div id="nova-splash" role="status" aria-label="Loading NovaLearn">
+    <svg class="star" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#ffc93c" d="M12 0c.6 6.2 5.8 11.4 12 12-6.2.6-11.4 5.8-12 12-.6-6.2-5.8-11.4-12-12C6.2 11.4 11.4 6.2 12 0z"/>
+    </svg>
+    <div>NovaLearn</div>
+    <div class="hint">Getting your lessons ready…</div>
+  </div>
+  <script>
+    // Remove the splash once Flutter has rendered its first frame.
+    window.addEventListener('flutter-first-frame', function () {
+      var s = document.getElementById('nova-splash');
+      if (!s) return;
+      s.style.opacity = '0';
+      setTimeout(function () { s.remove(); }, 300);
+    });
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

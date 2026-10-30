@@ -46,6 +46,16 @@ class NovaLearnApi
   /// Not called for a 401 on `login`/`register` themselves, which just means "wrong password."
   final void Function()? onUnauthorized;
 
+  /// Fire-and-forget ping so a sleeping free-tier backend starts waking up the moment the app
+  /// opens, rather than only once the parent submits the login form. Never throws.
+  Future<void> wakeUp() async {
+    try {
+      await _client.get(_uri('/actuator/health')).timeout(const Duration(seconds: 90));
+    } catch (_) {
+      // Best effort only — the real request will surface any genuine connection problem.
+    }
+  }
+
   @override
   Future<AuthSession> login(String email, String password) =>
       _authenticate('/api/v1/auth/login', email, password);
