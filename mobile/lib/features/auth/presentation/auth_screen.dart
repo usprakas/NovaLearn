@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/novalearn_api.dart';
@@ -19,6 +20,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _registering = false;
   bool _submitting = false;
   bool _demoLoading = false;
+  bool _showWakingHint = false;
+  Timer? _wakingHintTimer;
 
   // A real, persistent account on the live backend, seeded with two sample children and some
   // actual progress — not a client-side mock. Credentials are intentionally public: this is a
@@ -26,8 +29,25 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   static const String _demoEmail = 'demo@novalearn.app';
   static const String _demoPassword = 'NovaLearnDemo2026!';
 
+  /// The free-tier backend (and its free-tier database) can both go idle and take anywhere from
+  /// a few seconds to over a minute to wake back up on the first request after a quiet period —
+  /// a real, observed characteristic of this deployment, not a bug. Without this, that wait is a
+  /// silent spinner indistinguishable from the app being broken.
+  void _startWakingHintTimer() {
+    _wakingHintTimer?.cancel();
+    _wakingHintTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _showWakingHint = true);
+    });
+  }
+
+  void _stopWakingHintTimer() {
+    _wakingHintTimer?.cancel();
+    if (_showWakingHint) setState(() => _showWakingHint = false);
+  }
+
   Future<void> _loginDemo() async {
     setState(() => _demoLoading = true);
+    _startWakingHintTimer();
     try {
       await ref
           .read(sessionControllerProvider.notifier)
@@ -39,12 +59,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 "Couldn't reach the demo account. Check your connection and try again.")));
       }
     } finally {
+      _stopWakingHintTimer();
       if (mounted) setState(() => _demoLoading = false);
     }
   }
 
   @override
   void dispose() {
+    _wakingHintTimer?.cancel();
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -53,6 +75,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
+    _startWakingHintTimer();
     try {
       final SessionController controller = ref.read(sessionControllerProvider.notifier);
       if (_registering) {
@@ -72,6 +95,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 'Unable to reach NovaLearn. Check your connection and try again.')));
       }
     } finally {
+      _stopWakingHintTimer();
       if (mounted) setState(() => _submitting = false);
     }
   }
@@ -190,6 +214,29 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                         child: Text(_registering
                                             ? 'Already have an account? Sign in'
                                             : 'New to NovaLearn? Create an account')),
+                                    AnimatedSwitcher(
+                                      duration: const Duration(milliseconds: 300),
+                                      child: _showWakingHint
+                                          ? Padding(
+                                              key: const ValueKey<String>('waking-hint'),
+                                              padding: const EdgeInsets.only(top: 12),
+                                              child: Row(children: <Widget>[
+                                                SizedBox(
+                                                    width: 14,
+                                                    height: 14,
+                                                    child: CircularProgressIndicator(
+                                                        strokeWidth: 2, color: scheme.primary)),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                    child: Text(
+                                                        "Still connecting — the server may be waking up, this can take up to a minute.",
+                                                        style: Theme.of(context)
+                                                            .textTheme
+                                                            .bodySmall
+                                                            ?.copyWith(color: scheme.onSurfaceVariant))),
+                                              ]))
+                                          : const SizedBox.shrink(key: ValueKey<String>('no-hint')),
+                                    ),
                                     const SizedBox(height: 20),
                                     Row(children: <Widget>[
                                       Expanded(child: Divider(color: scheme.outlineVariant)),
