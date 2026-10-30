@@ -158,6 +158,9 @@ Origin headers of each live frontend
   session). Fixed: bad/expired tokens get 401, and the app refreshes the saved session on startup
   (refresh token lasts 30 days), falling back to sign-in if that's rejected. Also stopped
   registering Flutter's deprecated (now no-op) service worker on every load.
+  Testing this live exposed a second, older bug: `AuthService.authenticate` (login) ran in a
+  read-only transaction, so the refresh token it issued was never written — every login's refresh
+  token was rejected by `/auth/refresh` (registration's worked). Fixed; guarded by a test.
 - **Homework photo scanning is live** (Take a photo / Choose a photo on the Homework tab →
   `POST /homework/scans` → Gemini transcribes the question → the user checks it → the normal
   `/questions` flow). Photos are never stored. Open items: only verified against generated test

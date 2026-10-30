@@ -57,7 +57,9 @@ public class AuthService {
     return issueSession(parent);
   }
 
-  @Transactional(readOnly = true)
+  // Not readOnly: issueSession persists a new refresh token. Under a read-only transaction
+  // Hibernate never flushed that insert, so every refresh token issued at login was unusable.
+  @Transactional
   public AuthResult authenticate(String email, String password) {
     ParentAccount parent = accounts.findByEmail(email.trim().toLowerCase(Locale.ROOT)).orElseThrow(AuthenticationException::new);
     if (!passwords.matches(password, parent.passwordHash())) {

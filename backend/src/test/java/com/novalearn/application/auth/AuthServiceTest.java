@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.annotation.Transactional;
 
 class AuthServiceTest {
 
@@ -147,5 +148,22 @@ class AuthServiceTest {
 
     assertThatThrownBy(() -> service.deleteAccount(parentId, "wrong")).isInstanceOf(AuthenticationException.class);
     verify(accounts, never()).deleteById(any());
+  }
+
+  /**
+   * Every method that issues a session persists a refresh token, so none may run in a read-only
+   * transaction: Hibernate silently skips the flush, and the client gets a refresh token that was
+   * never stored (login's tokens were all rejected by /auth/refresh until this was fixed). Mocked
+   * repositories can't observe a missing flush, hence checking the annotation directly.
+   */
+  @Test
+  void sessionIssuingMethodsAreNotReadOnlyTransactions() throws Exception {
+    for (String method : new String[] {"register", "authenticate"}) {
+      Transactional tx = AuthService.class.getMethod(method, String.class, String.class).getAnnotation(Transactional.class);
+      assertThat(tx).as(method).isNotNull();
+      assertThat(tx.readOnly()).as(method).isFalse();
+    }
+    Transactional refresh = AuthService.class.getMethod("refresh", String.class).getAnnotation(Transactional.class);
+    assertThat(refresh.readOnly()).isFalse();
   }
 }
