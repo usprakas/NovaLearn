@@ -28,6 +28,11 @@ management:
     web:
       exposure:
         include: health,info
+  health:
+    redis:
+      # Redis only backs rate limiting, which falls back to an in-process counter when it's
+      # unreachable — so it must not mark the whole API DOWN.
+      enabled: false
 novalearn:
   security:
     jwt-secret: ${JWT_SECRET}

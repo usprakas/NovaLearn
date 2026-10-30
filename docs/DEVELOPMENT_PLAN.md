@@ -75,7 +75,7 @@ deliberate minimal-footprint choice, not every new backend capability needed its
 | Structured output validation / strict schema | 🟡 upgraded from nothing to a keyword content-safety filter + length cap on both input and output (`ContentSafetyFilter`), but still no JSON-schema-constrained response format — see SECURITY_AND_CHILD_SAFETY.md |
 | Full strategy set (`VISUAL_ANALOGY`, `GUIDED_QUESTION`) | ✅ all 5 strategies implemented, rotated via `attempt % 5` |
 | Refusal handling for inappropriate/unrelated requests | ✅ an unsafe question is refused (`refused: true`) before the AI client is ever called; an unsafe real AI response falls back to the offline template |
-| Per-child/session rate limiting on AI calls | ✅ `AiRateLimitFilter`, Redis-backed, 20/minute/child default, fails open — see SECURITY_AND_CHILD_SAFETY.md |
+| Per-child/session rate limiting on AI calls | ✅ `AiRateLimitFilter`, Redis-backed with in-process fallback, 20/minute/child default — see SECURITY_AND_CHILD_SAFETY.md |
 | Stateful tutor-session resource matching the spec's example route | ⬜ not implemented — endpoint remains stateless per-question; judged not worth building without a real conversation-memory design, see RISKS_AND_TRADEOFFS.md |
 
 ## Phase 5 — Parent dashboard and hardening — ✅ done (within this environment's constraints)

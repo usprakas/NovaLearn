@@ -25,7 +25,7 @@ Errors use a consistent shape (see `interfaces/rest/common/ApiExceptionHandler`)
 
 Password: 12–72 characters, required at registration. Login failure wording is identical whether
 the email is unknown or the password is wrong. Auth endpoints are rate-limited (default 10
-requests/minute/IP via Redis; fails open if Redis is unreachable). Note: `/auth/me` requires
+requests/minute/IP via Redis; falls back to an in-process counter if Redis is unreachable). Note: `/auth/me` requires
 `Authorization: Bearer <accessToken>` like any other authenticated route — only
 `register`/`login`/`refresh`/`logout` are exempt.
 
@@ -134,7 +134,7 @@ catalog's first lesson if no subject was given), `null` if the catalog has nothi
 Note: the master spec's example route shape (`/tutor/sessions/{sessionId}/messages`, implying a
 stateful conversation) is not what's implemented — this remains a stateless per-question endpoint.
 See DEVELOPMENT_PLAN.md Phase 4. Rate-limited per child (default 20 requests/minute via Redis;
-fails open if Redis is unreachable) — see SECURITY_AND_CHILD_SAFETY.md.
+falls back to an in-process counter if Redis is unreachable) — see SECURITY_AND_CHILD_SAFETY.md.
 
 ## Homework helper
 

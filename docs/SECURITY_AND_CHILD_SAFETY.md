@@ -20,7 +20,7 @@ boundary of this document (technical mechanics only — not a compliance certifi
   Cross-parent access attempts are covered by tests across every service
   (`rejectsAChildOutsideTheParentAccount`-style tests in `RewardsServiceTest`, `TutorServiceTest`,
   `HomeworkServiceTest`, `DashboardServiceTest`, and the original `ProgressServiceTest`).
-- **Rate limiting** on auth endpoints (Redis-backed, fails open if Redis is down — see
+- **Rate limiting** on auth endpoints (Redis-backed, in-process fallback if Redis is down — see
   ARCHITECTURE.md).
 - **Login error wording is identical** for an unknown email and a wrong password, so the API
   cannot be used to enumerate registered parent accounts.
@@ -58,7 +58,7 @@ boundary of this document (technical mechanics only — not a compliance certifi
   address/phone/SSN/credit-card/password) — a real but narrow baseline, not comprehensive
   moderation; see RISKS_AND_TRADEOFFS.md "Known limitations."
 - **Per-child rate limiting on the AI-backed endpoints** (`AiRateLimitFilter`, Redis-backed,
-  fails open): default 20 requests/minute/child (`AI_RATE_LIMIT_PER_MINUTE`), separate from and in
+  in-process fallback if Redis is down): default 20 requests/minute/child (`AI_RATE_LIMIT_PER_MINUTE`), separate from and in
   addition to the existing IP-based auth rate limiter — closes the "do not enable a real API key
   in a shared environment until this exists" gap this document previously flagged. This bounds
   request *rate*, not total spend; a real dollar budget cap is still a listed next step.

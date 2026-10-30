@@ -55,8 +55,9 @@ Short-lived HMAC-signed JWT access tokens (`novalearn.security.access-token-ttl-
   separately invalidated — it simply expires on its own short TTL. A stateful access-token
   blocklist was judged out of scope for the MVP; see `docs/RISKS_AND_TRADEOFFS.md`.
 - Login/register/refresh/logout are rate-limited per client IP via Redis (fixed window, default 10
-  requests/minute, configurable). If Redis is unreachable, the limiter fails open and logs a
-  warning rather than breaking authentication entirely — Redis is an optional dependency for this
+  requests/minute, configurable). If Redis is unreachable, the limiter falls back to an in-process
+  counter (exact for a single instance) and logs a warning, rather than breaking authentication or
+  silently disabling the limit — Redis is an optional dependency for this
   MVP, not a hard requirement.
 
 ## Curriculum, exercises, and server-side grading

@@ -19,7 +19,7 @@ alternative — see "Known limitations" below for the data-use trade-off that co
 | --- | --- |
 | Parent auth, child profiles, lesson progress | Real, tested |
 | Rotating, hashed refresh tokens + logout | Real, tested (`AuthServiceTest`) — see ARCHITECTURE.md |
-| Redis-backed rate limiting on auth endpoints | Real; fails open if Redis is unreachable; not covered by an automated test (would need a real or embedded Redis) |
+| Redis-backed rate limiting on auth endpoints | Real; falls back to an in-process counter if Redis is unreachable (`RedisFixedWindowRateLimiterTest` covers both paths with a mocked Redis) |
 | Lesson catalog (Math + English, PRE_K-GRADE_6) | Real, DB-backed, grade-filtered per child — originally 5 Grade 1 Math lessons only; expanded on explicit request to 7 more grade batches (17 lessons/grade). Curriculum content has engineering judgment behind it but **no elementary-education subject-matter review** — see PHASE_6_PLAN.md item 3 |
 | **Server-side exercise grading** | Real: the answer index is never serialized to the client; `ExerciseEvaluationService` is the only code path that ever reads it |
 | Gamification: coins (ledger), streaks, badges | Real, persisted, tested, including day-boundary streak logic and idempotent award-on-retry |
@@ -27,7 +27,7 @@ alternative — see "Known limitations" below for the data-use trade-off that co
 | AI tutor | Real offline templates by default; a real Anthropic or Gemini API call if `ANTHROPIC_API_KEY` or `GEMINI_API_KEY` is set (Anthropic takes precedence if both are); 5 strategies, refuses unsafe questions without ever calling the AI, and treats a real AI response as untrusted input subject to the same safety filter |
 | Homework helper | Same pattern as the tutor, including the unsafe-input/unsafe-output handling above. **Not OCR** — the input is typed text, never a photo (see `docs/PHASE_6_PLAN.md`) |
 | Content safety filter (`ContentSafetyFilter`) | Real, tested: a keyword denylist checked on both the child's question and (for a real AI call) the model's response, plus a response-length cap. A real, narrow implementation — not a claim of comprehensive moderation; see "Known limitations" below |
-| Per-child AI rate limiting (`AiRateLimitFilter`) | Real, Redis-backed, fails open; default 20 requests/minute/child, separate from the IP-based auth limiter |
+| Per-child AI rate limiting (`AiRateLimitFilter`) | Real, Redis-backed with in-process fallback; default 20 requests/minute/child, separate from the IP-based auth limiter |
 | Parent dashboard recommended-next-lesson | Real: first catalog lesson, in display order, the child hasn't completed — a plain "next up," not a personalized/adaptive recommendation |
 | Account deletion | Real: `DELETE /api/v1/auth/me` re-confirms the password, then deletes the parent row; every child profile, their progress, rewards, and refresh tokens cascade-delete at the database level (`ON DELETE CASCADE`) |
 | Correlation-ID request logging | Real: `CorrelationIdFilter` attaches an ID (reused from the client's `X-Correlation-Id` header if sent, generated otherwise) to every request's logs via MDC and echoes it back in the response header |
@@ -134,7 +134,7 @@ below.
 | A presented refresh token is expired, revoked, or unknown | `AuthService.refresh`/`logout` reject with the same generic `AuthenticationException` in all three cases, so a caller can't distinguish them |
 | A child's tutor/homework question matches the safety denylist | `ContentSafetyFilter.isSafe` returns false before any AI call is made; the service returns a safe redirect message without ever contacting the AI client (no cost incurred, no unsafe round-trip) |
 | A real AI response matches the safety denylist, or exceeds the length cap | Treated as untrusted output: the response is discarded and the service falls back to the deterministic offline template for that request, the same as an outright API failure |
-| A child exceeds the per-child AI rate limit | `AiRateLimitFilter` returns 429 before the request reaches the controller; fails open (allows the request) if Redis is unreachable, consistent with the existing auth rate limiter |
+| A child exceeds the per-child AI rate limit | `AiRateLimitFilter` returns 429 before the request reaches the controller; still enforced via the in-process fallback counter if Redis is unreachable |
 | A parent confirms account deletion with the wrong password | `AuthService.deleteAccount` throws `AuthenticationException` (mapped to 401); the account and all child data are untouched |
 
 ## What I'd do with more time
