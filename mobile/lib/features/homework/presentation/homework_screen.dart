@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_theme.dart';
@@ -8,6 +8,7 @@ import '../../../core/widgets/nova_star.dart';
 import '../../children/domain/child.dart';
 import '../domain/homework_guidance.dart';
 import '../domain/homework_repository.dart';
+import 'camera_capture_dialog.dart';
 
 class HomeworkTab extends StatefulWidget {
   const HomeworkTab({
@@ -74,12 +75,19 @@ class _HomeworkTabState extends State<HomeworkTab> {
     if (!mounted) return;
     if (!started) {
       setState(() => _listening = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text("Voice input isn't available in this browser/device.")));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Voice input isn't available in this browser/device.")));
     }
   }
 
   Future<Uint8List?> _pickWithImagePicker(ImageSource source) async {
+    // Desktop browsers ignore the file input's camera hint and just open a file picker, so use the
+    // webcam directly there. Phone browsers (and native apps) keep their own camera UI.
+    final bool isPhone = defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android;
+    if (source == ImageSource.camera && kIsWeb && !isPhone) {
+      return showCameraCaptureDialog(context);
+    }
     // Downscaled on-device before upload: plenty of resolution to read worksheet text, and keeps
     // the request well under the API's 5 MB limit on a slow connection.
     final XFile? file = await ImagePicker()
@@ -131,8 +139,8 @@ class _HomeworkTabState extends State<HomeworkTab> {
       _error = null;
     });
     try {
-      final HomeworkGuidance guidance = await widget.homeworkRepository
-          .explain(widget.token, widget.child.id, question);
+      final HomeworkGuidance guidance =
+          await widget.homeworkRepository.explain(widget.token, widget.child.id, question);
       if (!mounted) return;
       setState(() => _guidance = guidance);
     } catch (error) {
@@ -144,9 +152,8 @@ class _HomeworkTabState extends State<HomeworkTab> {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
-      padding: const EdgeInsets.all(24),
-      children: <Widget>[
+  Widget build(BuildContext context) =>
+      ListView(padding: const EdgeInsets.all(24), children: <Widget>[
         Row(children: <Widget>[
           const NovaStar(size: 22),
           const SizedBox(width: 8),
@@ -196,44 +203,103 @@ class _HomeworkTabState extends State<HomeworkTab> {
         const SizedBox(height: 12),
         FilledButton.icon(
           onPressed:
-              _loading || _scanning || _questionController.text.trim().isEmpty
-              ? null
-              : _explain,
+              _loading || _scanning || _questionController.text.trim().isEmpty ? null : _explain,
           icon: const Icon(Icons.auto_stories_outlined),
           label: const Text('Help me understand'),
         ),
         if (_guidance != null) ...<Widget>[
           const SizedBox(height: 20),
-          ...List<Widget>.generate(
-              _guidance!.steps.length,
-              (int index) => Card(
-                  child: ListTile(
-                      leading: CircleAvatar(
-                          backgroundColor: AppTheme.cosmicViolet,
-                          foregroundColor: Colors.white,
-                          child: Text('${index + 1}',
-                              style: const TextStyle(fontWeight: FontWeight.w800))),
-                      title: Text(_guidance!.steps[index], style: const TextStyle(fontSize: 16))))),
-          const SizedBox(height: 8),
-          Card(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Expanded(child: Text(_guidance!.finalHint)),
-                        IconButton(
-                            tooltip: 'Read aloud',
-                            onPressed: () => _voice.speak(
-                                '${_guidance!.steps.join('. ')}. ${_guidance!.finalHint}'),
-                            icon: const Icon(Icons.volume_up_outlined),
-                            visualDensity: VisualDensity.compact),
-                      ]))),
+          if (_guidance!.isWorkedSolution)
+            ..._workedSolution(context, _guidance!)
+          else ...<Widget>[
+            ...List<Widget>.generate(_guidance!.steps.length,
+                (int index) => _stepCard(context, index, _guidance!.steps[index], null)),
+            const SizedBox(height: 8),
+            _tipCard(context, _guidance!.finalHint,
+                '${_guidance!.steps.join('. ')}. ${_guidance!.finalHint}'),
+          ],
         ],
         if (_error != null) ...<Widget>[
           const SizedBox(height: 16),
           Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
         ],
       ]);
+
+  List<Widget> _workedSolution(BuildContext context, HomeworkGuidance guidance) {
+    final String answer = guidance.finalAnswer!;
+    // finalHint is "Answer: <answer>. <tip>" for older clients; the answer gets its own card here.
+    final String answerPrefix = 'Answer: $answer. ';
+    final String tip = guidance.finalHint.startsWith(answerPrefix)
+        ? guidance.finalHint.substring(answerPrefix.length)
+        : guidance.finalHint;
+    final String spoken = <String>[
+      for (final WorkedStep step in guidance.workedSteps)
+        step.work == null ? step.explanation : '${step.explanation} ${step.work}',
+      'The answer is $answer.',
+      tip,
+    ].join(' ');
+    return <Widget>[
+      Text("Let's solve it together", style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 8),
+      ...List<Widget>.generate(
+          guidance.workedSteps.length,
+          (int index) => _stepCard(context, index, guidance.workedSteps[index].explanation,
+              guidance.workedSteps[index].work)),
+      const SizedBox(height: 8),
+      Card(
+        color: AppTheme.cosmicViolet,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Row(children: <Widget>[
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 12),
+            const Text('Answer', style: TextStyle(color: Colors.white70, fontSize: 16)),
+            const SizedBox(width: 12),
+            Expanded(
+                child: SelectableText(answer,
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800))),
+          ]),
+        ),
+      ),
+      const SizedBox(height: 8),
+      _tipCard(context, tip, spoken),
+    ];
+  }
+
+  Widget _stepCard(BuildContext context, int index, String explanation, String? work) => Card(
+      child: ListTile(
+          leading: CircleAvatar(
+              backgroundColor: AppTheme.cosmicViolet,
+              foregroundColor: Colors.white,
+              child: Text('${index + 1}', style: const TextStyle(fontWeight: FontWeight.w800))),
+          title: Text(explanation, style: const TextStyle(fontSize: 16)),
+          subtitle: work == null
+              ? null
+              : Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: SelectableText(work,
+                      style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSecondaryContainer)),
+                )));
+
+  Widget _tipCard(BuildContext context, String text, String spoken) => Card(
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+            Expanded(child: Text(text)),
+            IconButton(
+                tooltip: 'Read aloud',
+                onPressed: () => _voice.speak(spoken),
+                icon: const Icon(Icons.volume_up_outlined),
+                visualDensity: VisualDensity.compact),
+          ])));
 }

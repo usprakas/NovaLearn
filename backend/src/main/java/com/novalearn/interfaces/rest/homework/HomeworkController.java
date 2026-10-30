@@ -70,9 +70,18 @@ public class HomeworkController {
   /** Capped at 500 characters — "limit message size" per the child-safety requirements. */
   public record ExplainHomeworkRequest(@NotBlank @Size(max = 500) String questionText) { }
 
-  public record HomeworkGuidanceResponse(List<String> steps, String finalHint) {
+  /**
+   * {@code workedSteps}/{@code finalAnswer} are present only when an AI provider actually solved
+   * the question (omitted for the offline fallback); {@code steps}/{@code finalHint} always are.
+   */
+  public record HomeworkGuidanceResponse(
+      List<String> steps, String finalHint, List<WorkedStepResponse> workedSteps, String finalAnswer) {
     static HomeworkGuidanceResponse from(HomeworkGuidance guidance) {
-      return new HomeworkGuidanceResponse(guidance.steps(), guidance.finalHint());
+      List<WorkedStepResponse> worked = guidance.workedSteps().isEmpty() ? null
+          : guidance.workedSteps().stream().map(w -> new WorkedStepResponse(w.explanation(), w.work())).toList();
+      return new HomeworkGuidanceResponse(guidance.steps(), guidance.finalHint(), worked, guidance.finalAnswer());
     }
   }
+
+  public record WorkedStepResponse(String explanation, String work) { }
 }

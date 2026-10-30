@@ -141,7 +141,7 @@ falls back to an in-process counter if Redis is unreachable) — see SECURITY_AN
 
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
-| POST | `/children/{childId}/homework/questions` | `{questionText (<= 500 chars)}` | 201, `{steps: [string], finalHint}` |
+| POST | `/children/{childId}/homework/questions` | `{questionText (<= 500 chars)}` | 201, `{steps: [string], finalHint, workedSteps?: [{explanation, work?}], finalAnswer?}` |
 | POST | `/children/{childId}/homework/scans` | `{imageBase64}` — JPEG/PNG/WebP, <= 5 MB decoded | 200, `{questionText}` |
 
 **Photo scanning** (`/scans`) only transcribes: it returns the question read off the photo
@@ -152,7 +152,10 @@ base64, or not a JPEG/PNG/WebP), 422 (no question found, or the transcription fa
 check), 503 (no vision provider configured, i.e. no `GEMINI_API_KEY`, or the provider call failed
 — the client tells the user to type the question instead).
 
-`/questions`: same
+`/questions` returns a **worked solution** when an AI provider is configured: `workedSteps` (each
+step's explanation plus `work`, the math and its result) and `finalAnswer`, pitched at the child's
+grade. The offline fallback can't solve anything, so it omits both and returns general guidance
+only. `steps`/`finalHint` are always present as a plain-text rendering for older clients. Same
 offline/real-AI-with-fallback behavior and content-safety check as the tutor: an unsafe question
 never reaches the AI client, and an unsafe or oversized real AI response falls back to the offline
 template. Rate-limited per child, shared with the tutor endpoint's limiter and budget
