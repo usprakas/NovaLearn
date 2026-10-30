@@ -185,8 +185,9 @@ handful of attempts.
   cleanup job exists — unbounded growth over a long-running deployment, unchanged limitation.
 - **Reward transactions**: never deleted or mutated once written — the ledger is append-only by
   design, which is what makes it auditable.
-- **Homework images**: still not applicable — homework help is text-only (no OCR, no upload, no
-  S3 adapter). Unchanged from before.
+- **Homework images**: not stored. Photo scanning (`/homework/scans`) holds the image in memory
+  only for the duration of the request, sends it to the vision provider, and keeps nothing — no
+  table, no S3, no logs.
 - **Tutor conversations**: still not persisted — each tutor request remains stateless. Unchanged.
 
 **No legal compliance claim is made here.** Parental consent requirements, applicable children's

@@ -13,11 +13,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Takes an already-typed homework question — this is deliberately NOT an OCR/image pipeline;
- * NovaLearn's "homework scanner" vision from the PRD needs a vision/OCR API this environment has
- * no credentials for, so the mobile client asks the parent or child to type the question instead.
- * See RISKS_AND_TRADEOFFS.md. The actual guidance generation follows the same offline/real-LLM
- * split, and the same input/output content-safety treatment, as
+ * Explains a homework question given as text — typed, spoken, or transcribed from a photo by
+ * {@link HomeworkScanService} and then confirmed by the user. Guidance generation follows the
+ * same offline/real-LLM split, and the same input/output content-safety treatment, as
  * {@link com.novalearn.application.tutor.TutorService}.
  */
 @Service

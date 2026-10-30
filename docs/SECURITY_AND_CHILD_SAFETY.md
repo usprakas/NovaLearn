@@ -62,6 +62,13 @@ boundary of this document (technical mechanics only — not a compliance certifi
   addition to the existing IP-based auth rate limiter — closes the "do not enable a real API key
   in a shared environment until this exists" gap this document previously flagged. This bounds
   request *rate*, not total spend; a real dollar budget cap is still a listed next step.
+- **Homework photo scanning keeps a person in the loop and keeps nothing.** `/homework/scans`
+  only transcribes the question; the text comes back to the client to be checked and edited, and
+  is then submitted through the normal `/homework/questions` path (same validation and safety
+  filter). The transcription itself is also safety-filtered. The image type is detected from its
+  bytes (5 MB cap), the photo is held in memory only and never stored or logged, and the endpoint
+  shares the per-child AI rate limit. Caveat: on Gemini's free tier the photo is sent to Google
+  under terms that allow training use — see RISKS_AND_TRADEOFFS.md.
 - **Account deletion requires re-confirming the password**, not just a valid access token
   (`DELETE /api/v1/auth/me`, `AuthService.deleteAccount`) — a stolen/still-valid access token
   alone cannot delete the account. Deletion cascades to every child profile and all their data at

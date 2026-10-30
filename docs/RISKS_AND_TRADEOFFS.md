@@ -25,7 +25,8 @@ alternative — see "Known limitations" below for the data-use trade-off that co
 | Gamification: coins (ledger), streaks, badges | Real, persisted, tested, including day-boundary streak logic and idempotent award-on-retry |
 | Parent dashboard aggregation | Real, computed from live progress + rewards data |
 | AI tutor | Real offline templates by default; a real Anthropic or Gemini API call if `ANTHROPIC_API_KEY` or `GEMINI_API_KEY` is set (Anthropic takes precedence if both are); 5 strategies, refuses unsafe questions without ever calling the AI, and treats a real AI response as untrusted input subject to the same safety filter |
-| Homework helper | Same pattern as the tutor, including the unsafe-input/unsafe-output handling above. **Not OCR** — the input is typed text, never a photo (see `docs/PHASE_6_PLAN.md`) |
+| Homework helper | Same pattern as the tutor, including the unsafe-input/unsafe-output handling above |
+| Homework photo scanning (`HomeworkScanService`) | Real, via Gemini's image input when `GEMINI_API_KEY` is set (independent of which provider handles text); 503 "type it instead" otherwise — no fake offline OCR. Transcription only: the user confirms/edits the text before it goes through the normal `/questions` path. Image type detected from bytes, 5 MB cap, safety-filtered output, photo never stored. Extraction quality has only been checked against a few generated test images, not real handwritten worksheets |
 | Content safety filter (`ContentSafetyFilter`) | Real, tested: a keyword denylist checked on both the child's question and (for a real AI call) the model's response, plus a response-length cap. A real, narrow implementation — not a claim of comprehensive moderation; see "Known limitations" below |
 | Per-child AI rate limiting (`AiRateLimitFilter`) | Real, Redis-backed with in-process fallback; default 20 requests/minute/child, separate from the IP-based auth limiter |
 | Parent dashboard recommended-next-lesson | Real: first catalog lesson, in display order, the child hasn't completed — a plain "next up," not a personalized/adaptive recommendation |
@@ -79,7 +80,11 @@ alternative — see "Known limitations" below for the data-use trade-off that co
   "your data isn't used for training" guarantee on the free tier. This is a real trade-off for a
   children's-data app: reasonable for local testing/demos (which is what prompted adding this
   adapter), not something to enable in a production deployment with real children's questions
-  without that trade-off being explicitly, knowingly accepted.
+  without that trade-off being explicitly, knowingly accepted. **This now also covers homework
+  photos**, which are more sensitive than typed text (a worksheet can carry a child's name,
+  school, or handwriting). The scan prompt asks the model to omit names, and the UI tells users to
+  frame just the question — but the photo itself still reaches Google. Moving to a paid tier (or
+  a provider with a no-training guarantee) is the real fix before real families use scanning.
 - **Flyway migrations V5–V8 (the Phase 2 schema) were sanity-checked by replaying them against H2
   in PostgreSQL-compatibility mode**, not a real Postgres — there is no Docker in this environment.
   This caught real syntax issues during authoring (see TESTING.md) but is not equivalent to the

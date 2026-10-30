@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../../features/auth/domain/auth_repository.dart';
@@ -220,6 +221,16 @@ class NovaLearnApi
       body: jsonEncode(<String, Object?>{'questionText': questionText}),
     );
     return HomeworkGuidance.fromJson(_decodeObject(response));
+  }
+
+  @override
+  Future<String> scanQuestion(String token, String childId, Uint8List imageBytes) async {
+    final http.Response response = await _client.post(
+      _uri('/api/v1/children/$childId/homework/scans'),
+      headers: _headers(token),
+      body: jsonEncode(<String, Object?>{'imageBase64': base64Encode(imageBytes)}),
+    );
+    return _decodeObject(response)['questionText']! as String;
   }
 
   Future<AuthSession> _authenticate(

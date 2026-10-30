@@ -1,6 +1,7 @@
 package com.novalearn.config;
 
 import com.novalearn.application.ai.AiTextClient;
+import com.novalearn.application.ai.AiVisionClient;
 import com.novalearn.infrastructure.ai.AnthropicTextClient;
 import com.novalearn.infrastructure.ai.GeminiTextClient;
 import org.springframework.context.annotation.Bean;
@@ -24,6 +25,20 @@ public class AiConfig {
     String geminiKey = System.getenv("GEMINI_API_KEY");
     if (geminiKey != null && !geminiKey.isBlank()) {
       return new GeminiTextClient(geminiKey);
+    }
+    return null;
+  }
+
+  /**
+   * Homework photo scanning. Only Gemini is wired for images today, so this is registered
+   * whenever {@code GEMINI_API_KEY} is set — independently of which provider handles text. With no
+   * key, no bean is registered and the scan endpoint answers 503 "please type it instead".
+   */
+  @Bean
+  public AiVisionClient aiVisionClient() {
+    String geminiKey = System.getenv("GEMINI_API_KEY");
+    if (geminiKey != null && !geminiKey.isBlank()) {
+      return new GeminiTextClient(geminiKey)::readImage;
     }
     return null;
   }

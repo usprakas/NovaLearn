@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>NovaLearn uses the camera to take a photo of a homework question so it can read the question for you.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>NovaLearn reads a homework question from a photo you choose. The photo is not saved.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>NovaLearn uses the microphone so your child can ask the tutor a question by voice instead of typing.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

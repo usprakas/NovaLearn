@@ -10,6 +10,13 @@ now would be unverified by construction.
 
 ## 1. Homework OCR (photographed homework → text)
 
+> **Done (shipped ahead of the rest of Phase 6).** Implemented as `POST .../homework/scans` →
+> `{questionText}` with an `AiVisionClient` port backed by Gemini, rather than the
+> `/uploads` → `{steps, finalHint}` shape sketched below: returning the transcription for the
+> user to confirm before submitting it to `/questions` keeps a person in the loop on what the
+> model read. No storage, no S3. See `API_SPECIFICATION.md`. The original plan is kept below for
+> context.
+
 - **Shape**: add `POST /api/v1/children/{childId}/homework/uploads` accepting an image
   (multipart), returning the same `{steps, finalHint}` shape the text endpoint already returns —
   OCR becomes a new input path into the *existing* `HomeworkService`, not a parallel feature.

@@ -141,8 +141,17 @@ falls back to an in-process counter if Redis is unreachable) — see SECURITY_AN
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
 | POST | `/children/{childId}/homework/questions` | `{questionText (<= 500 chars)}` | 201, `{steps: [string], finalHint}` |
+| POST | `/children/{childId}/homework/scans` | `{imageBase64}` — JPEG/PNG/WebP, <= 5 MB decoded | 200, `{questionText}` |
 
-Text-in only — **there is no OCR or image upload** (see `docs/PHASE_6_PLAN.md`). Same
+**Photo scanning** (`/scans`) only transcribes: it returns the question read off the photo
+(<= 500 chars, so it can be sent to `/questions` unchanged) for the user to check and edit — it
+does not return guidance itself. The image type is detected from its bytes (the client's claim is
+ignored), and the photo is never stored or logged. Errors: 400 (missing, oversized, not
+base64, or not a JPEG/PNG/WebP), 422 (no question found, or the transcription failed the content-safety
+check), 503 (no vision provider configured, i.e. no `GEMINI_API_KEY`, or the provider call failed
+— the client tells the user to type the question instead).
+
+`/questions`: same
 offline/real-AI-with-fallback behavior and content-safety check as the tutor: an unsafe question
 never reaches the AI client, and an unsafe or oversized real AI response falls back to the offline
 template. Rate-limited per child, shared with the tutor endpoint's limiter and budget
@@ -155,13 +164,12 @@ template. Rate-limited per child, shared with the tutor endpoint's limiter and b
 | GET | `/actuator/health` | Liveness/readiness; no auth |
 | GET | `/v3/api-docs`, `/swagger-ui.html` | OpenAPI document and UI; no auth |
 
-A request that exceeds its rate limit (auth endpoints, or the AI tutor/homework endpoints above)
-receives `429 Too Many Requests`, not the standard error shape above — Spring's default error
-body for `response.sendError`.
+A request that exceeds its rate limit (auth endpoints, or the AI tutor/homework endpoints above,
+including `/homework/scans`) receives `429 Too Many Requests` in the standard error shape above,
+with a `Retry-After: 60` header.
 
 ## Not yet implemented (see docs/DEVELOPMENT_PLAN.md and docs/PHASE_6_PLAN.md for phasing)
 
 - Any teacher-facing endpoint — out of MVP scope by design.
-- OCR-based homework image upload (`POST .../homework/uploads` + S3) — see `docs/PHASE_6_PLAN.md`.
 - A stateful tutor conversation resource matching the master spec's example route shape.
 - Mobile UI for account deletion — the backend endpoint above exists; no screen calls it yet.
