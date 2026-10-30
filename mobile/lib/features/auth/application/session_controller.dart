@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/novalearn_api.dart';
 import '../../../core/providers.dart';
 import '../../../core/security/session_store.dart';
 import '../domain/auth_repository.dart';
@@ -14,9 +16,51 @@ class SessionController extends StateNotifier<AsyncValue<Session?>> {
   final AuthRepository _auth;
   final SessionStore _store;
 
+  /// Restores a saved session and immediately swaps it for a fresh one. The saved access token is
+  /// usually expired by the time someone comes back (1h TTL), while the refresh token lasts 30
+  /// days — so refreshing up front keeps a returning parent signed in instead of every request
+  /// failing on a dead token. A rejected refresh token means the session really is over: clear
+  /// it and show sign-in. A network failure or timeout keeps the saved session (any request that
+  /// then gets a 401 signs out via `NovaLearnApi.onUnauthorized`). Never leaves the app stuck
+  /// loading, even if the stored data itself can't be read.
   Future<void> _restore() async {
-    final Session? session = await _store.read();
-    state = AsyncValue.data(session);
+    final Session? stored;
+    try {
+      stored = await _store.read();
+    } catch (_) {
+      await _clearQuietly();
+      state = const AsyncValue.data(null);
+      return;
+    }
+    if (stored == null) {
+      state = const AsyncValue.data(null);
+      return;
+    }
+    try {
+      final AuthSession fresh =
+          await _auth.refresh(stored.refreshToken).timeout(const Duration(seconds: 20));
+      final Session session =
+          Session(accessToken: fresh.accessToken, refreshToken: fresh.refreshToken, email: fresh.email);
+      await _store.save(session);
+      state = AsyncValue.data(session);
+    } on ApiException catch (error) {
+      if (error.statusCode >= 400 && error.statusCode < 500 && error.statusCode != 429) {
+        await _clearQuietly();
+        state = const AsyncValue.data(null);
+      } else {
+        state = AsyncValue.data(stored);
+      }
+    } catch (_) {
+      state = AsyncValue.data(stored);
+    }
+  }
+
+  Future<void> _clearQuietly() async {
+    try {
+      await _store.clear();
+    } catch (_) {
+      // Nothing more to do — an unreadable store is treated as signed out either way.
+    }
   }
 
   Future<void> login(String email, String password) => _authenticate(() => _auth.login(email, password));

@@ -27,7 +27,8 @@ Password: 12–72 characters, required at registration. Login failure wording is
 the email is unknown or the password is wrong. Auth endpoints are rate-limited (default 10
 requests/minute/IP via Redis; falls back to an in-process counter if Redis is unreachable). Note: `/auth/me` requires
 `Authorization: Bearer <accessToken>` like any other authenticated route — only
-`register`/`login`/`refresh`/`logout` are exempt.
+`register`/`login`/`refresh`/`logout` are exempt. A missing, expired, or invalid access token on an authenticated route gets
+`401` (standard error shape) — the client's cue to call `/auth/refresh` or sign in again.
 
 ## Children
 

@@ -152,6 +152,12 @@ Origin headers of each live frontend
   takes 30–60s to wake it back up. Known tradeoff of the free tier, not a bug.
   Mitigated by `.github/workflows/keep-alive.yml` (health ping every 10 min) and a wake-up ping
   the app sends on open, plus a branded HTML splash while Flutter loads.
+- ~~Returning to the site in the same browser failed with "Something went wrong"~~ — the saved
+  session's access token (1h TTL) had expired, the API answered 403 instead of 401, and the app
+  only signs out on 401, so it retried a dead token forever (private windows worked: no saved
+  session). Fixed: bad/expired tokens get 401, and the app refreshes the saved session on startup
+  (refresh token lasts 30 days), falling back to sign-in if that's rejected. Also stopped
+  registering Flutter's deprecated (now no-op) service worker on every load.
 - **Homework photo scanning is live** (Take a photo / Choose a photo on the Homework tab →
   `POST /homework/scans` → Gemini transcribes the question → the user checks it → the normal
   `/questions` flow). Photos are never stored. Open items: only verified against generated test
