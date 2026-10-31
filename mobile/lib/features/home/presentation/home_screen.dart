@@ -38,8 +38,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: ChildPicker(
         token: widget.session.accessToken,
         childrenRepository: api,
-        builder: (BuildContext context, Child child, VoidCallback reloadChildren) =>
-            _buildTab(child, reloadChildren),
+        builder:
+            (BuildContext context, Child child, VoidCallback reloadChildren) =>
+                _buildTab(child, reloadChildren),
       ),
       bottomNavigationBar: NavigationBar(
           selectedIndex: _tab,
@@ -79,14 +80,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     setState(() => _tab = value);
   }
 
-  Future<void> _openGated(
-      BuildContext context, WidgetBuilder builder) async {
+  Future<void> _openGated(BuildContext context, WidgetBuilder builder) async {
     final bool allowed = await showParentGate(context);
     if (!allowed || !context.mounted) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(builder: builder));
   }
 
-  Widget _buildTab(Child child, VoidCallback reloadChildren) {
+  /// Keyed by child and grade: each tab loads its data once in `initState`, so without a new key
+  /// switching child (or changing a child's grade) would keep showing the previous child's
+  /// lessons, chat, or progress.
+  Widget _buildTab(Child child, VoidCallback reloadChildren) => KeyedSubtree(
+      key: ValueKey<String>('${child.id}:${child.gradeLevel}'),
+      child: _tabFor(child, reloadChildren));
+
+  Widget _tabFor(Child child, VoidCallback reloadChildren) {
     final api = ref.watch(novaLearnApiProvider);
     switch (_tab) {
       case 0:

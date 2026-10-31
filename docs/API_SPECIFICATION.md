@@ -48,6 +48,7 @@ STORY, GAMES, REPETITION}`.
 | Method | Path | Response |
 | --- | --- | --- |
 | GET | `/children/{childId}/lessons` | 200, `[{code, subject, gradeLevel, order, title, description}]` — only lessons at the child's own grade level |
+| GET | `/children/{childId}/lessons/{code}/set?number=` | 200, `{code, subject, title, description, setNumber, totalSets, completedAllSets, exercises: [...]}` — one set of 3 questions. Without `number`, the first set with an unanswered question (so a returning child resumes); once every set is answered, `completedAllSets` is `true` and set 1 is served for practice. `number` is 1-based and clamped. 404 if the child isn't this parent's or the lesson is unknown |
 | GET | `/lessons/{code}` | 200, `{code, subject, title, description, exercises: [{id, order, prompt, choices}]}`; 404 if unknown |
 
 **The list endpoint is child-scoped, not a bare catalog browse.** It used to be
@@ -62,8 +63,9 @@ list, so there's no real exposure in leaving it open.
 evaluation" below). This is a Phase 2 change: the catalog used to embed `questions` with an
 `answerIndex` the client graded itself; that shape no longer exists.
 
-**Curriculum coverage**: Math and English, PRE_K through GRADE_6 (Grade 1 has 5 lessons from the
-original MVP; every other grade has 17 — 9 Math + 8 English). See
+**Curriculum coverage**: Math and English, PRE_K through GRADE_6. Grade 1 has 17 lessons (9 Math +
+8 English); every other grade has 19 (10 Math + 9 English). Every lesson has 6 questions, served
+as two sets of 3. See
 `docs/DATABASE_DESIGN.md` → "Curriculum scope".
 
 ## Exercise evaluation

@@ -54,15 +54,25 @@ class _LessonListTabState extends State<LessonListTab> {
       gradeLevels.indexOf(widget.child.gradeLevel) <= gradeLevels.indexOf('GRADE_1');
 
   Future<void> _openLesson(LessonSummary summary) async {
-    final Lesson lesson =
-        await widget.lessonsRepository.lesson(widget.token, summary.code);
+    final Lesson lesson;
+    try {
+      lesson = await widget.lessonsRepository
+          .lessonSet(widget.token, widget.child.id, summary.code);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
+      }
+      return;
+    }
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => LessonScreen(
             token: widget.token,
             child: widget.child,
             lesson: lesson,
-            exerciseRepository: widget.exerciseRepository)));
+            exerciseRepository: widget.exerciseRepository,
+            lessonsRepository: widget.lessonsRepository)));
     widget.onLessonCompleted();
   }
 

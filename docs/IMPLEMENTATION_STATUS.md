@@ -28,6 +28,27 @@ browser by anyone before this session.
 
 ## This session's work
 
+### Bigger curriculum, served in sets; Learn tab follows the selected child
+
+- **More syllabus and questions** (`V19`–`V26`, one per grade): every lesson now has 6 questions
+  (3 new per existing lesson); Grade 1 grows from 5 to 17 lessons (adds place value, shapes, time,
+  measuring, and 8 English lessons); every other grade gains one Math and one English lesson (19
+  each). 528 new questions, 900 total. Generated from reviewed content with a validator (exactly 3
+  unique choices, valid visual tags, no prompt that would accidentally draw a coordinate grid or
+  clock, arithmetic answers recomputed). All 26 migrations verified applying on a fresh database.
+- **Question sets**: `GET /children/{childId}/lessons/{code}/set` serves 3 questions at a time.
+  Finishing a set shows "Set 1 done!" → "Start set 2"; after the last set, "You finished every
+  set!" → "Practice again". A returning child resumes at their first unfinished set (worked out
+  from `exercise_attempts`, so it carries across devices). Lesson completion and coins still
+  require answering every question in the lesson.
+- **Bug fixed — Learn tab showed the first child's lessons after switching child or grade**: each
+  home tab loaded its data once in `initState`, and switching child kept the same widget state.
+  Tabs are now keyed by child id + grade so they reload.
+- **Bug fixed — lesson screen threw in debug when leaving after a correct answer**: the
+  wrong-answer shake animation created its controller lazily, first inside `dispose()`.
+- **Known effect**: lessons a child had already finished (3 of 3) now count as in progress (3 of
+  6) until they do set 2; finishing it marks the lesson complete again and awards its coins again.
+
 ### Visual content (no image assets — everything is drawn)
 
 Exercise choices across the curriculum were plain text even where a picture would obviously help

@@ -148,6 +148,16 @@ class NovaLearnApi
   }
 
   @override
+  Future<Lesson> lessonSet(String token, String childId, String code, {int? number}) async {
+    final Uri uri = _uri('/api/v1/children/$childId/lessons/$code/set');
+    final http.Response response = await _client.get(
+      number == null ? uri : uri.replace(queryParameters: <String, String>{'number': '$number'}),
+      headers: _headers(token),
+    );
+    return Lesson.fromJson(_decodeObject(response));
+  }
+
+  @override
   Future<ExerciseEvaluation> submitAnswer(
     String token,
     String childId,

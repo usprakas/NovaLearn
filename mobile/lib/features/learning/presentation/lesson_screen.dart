@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/choice_visual.dart';
 import '../../../core/widgets/coordinate_grid.dart';
+import '../../../core/widgets/error_state.dart';
 import '../../../core/widgets/nova_star.dart';
 import '../../children/domain/child.dart';
 import '../domain/exercise_evaluation.dart';
 import '../domain/exercise_repository.dart';
 import '../domain/lesson.dart';
+import '../domain/lessons_repository.dart';
 
 /// Grade 3's "the long hand points to the N" minute-hand exercises describe a clock verbally with
 /// no image — this pulls the number straight out of the existing prompt text so a clock face can
@@ -17,6 +19,9 @@ final RegExp _minuteHandPattern = RegExp(r'long hand points to the (\d+)');
 /// Shows one exercise at a time and submits each answer to the server for grading (see
 /// `ExerciseRepository.submitAnswer`) instead of computing a score locally — the client never
 /// has the correct answer, so it cannot grade itself even if it wanted to.
+///
+/// [lesson] is one *set* of the lesson's questions. Finishing it shows a set-complete panel that
+/// fetches the next set in place, so a child moves set 1 → set 2 → ... without backing out.
 class LessonScreen extends StatefulWidget {
   const LessonScreen({
     super.key,
@@ -24,24 +29,52 @@ class LessonScreen extends StatefulWidget {
     required this.child,
     required this.lesson,
     required this.exerciseRepository,
+    required this.lessonsRepository,
   });
   final String token;
   final Child child;
   final Lesson lesson;
   final ExerciseRepository exerciseRepository;
+  final LessonsRepository lessonsRepository;
 
   @override
   State<LessonScreen> createState() => _LessonScreenState();
 }
 
 class _LessonScreenState extends State<LessonScreen> {
+  late Lesson _lesson = widget.lesson;
   int _index = 0;
   int? _selectedChoice;
   ExerciseEvaluation? _evaluation;
   bool _submitting = false;
+  bool _setFinished = false;
+  bool _loadingSet = false;
 
-  Exercise get _current => widget.lesson.exercises[_index];
-  bool get _isLast => _index == widget.lesson.exercises.length - 1;
+  Exercise get _current => _lesson.exercises[_index];
+  bool get _isLast => _index == _lesson.exercises.length - 1;
+
+  Future<void> _startSet(int number) async {
+    setState(() => _loadingSet = true);
+    try {
+      final Lesson next = await widget.lessonsRepository
+          .lessonSet(widget.token, widget.child.id, _lesson.code, number: number);
+      if (!mounted) return;
+      setState(() {
+        _lesson = next;
+        _index = 0;
+        _selectedChoice = null;
+        _evaluation = null;
+        _setFinished = false;
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _loadingSet = false);
+    }
+  }
 
   Future<void> _submit() async {
     if (_selectedChoice == null) return;
@@ -60,7 +93,7 @@ class _LessonScreenState extends State<LessonScreen> {
 
   void _next() {
     if (_isLast) {
-      Navigator.of(context).pop();
+      setState(() => _setFinished = true);
       return;
     }
     setState(() {
@@ -109,16 +142,28 @@ class _LessonScreenState extends State<LessonScreen> {
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    final int total = widget.lesson.exercises.length;
+    if (_setFinished) return _buildSetComplete(context);
+    final int total = _lesson.exercises.length;
     final Widget? promptVisual = _promptVisual(scheme.primary);
     final bool reduceMotion = MediaQuery.of(context).disableAnimations;
     final Duration transitionDuration =
         reduceMotion ? Duration.zero : const Duration(milliseconds: 380);
     return Scaffold(
-      appBar: AppBar(title: Text(widget.lesson.title)),
+      appBar: AppBar(title: Text(_lesson.title)),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: <Widget>[
+          if (_lesson.totalSets > 1) ...<Widget>[
+            Text(
+                _lesson.completedAllSets
+                    ? 'Practice round · Set ${_lesson.setNumber} of ${_lesson.totalSets}'
+                    : 'Set ${_lesson.setNumber} of ${_lesson.totalSets}',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleSmall
+                    ?.copyWith(color: scheme.primary, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+          ],
           Row(
             children: <Widget>[
               Expanded(
@@ -280,8 +325,63 @@ class _LessonScreenState extends State<LessonScreen> {
                       ])))),
       const SizedBox(height: 12),
       FilledButton(
-          onPressed: _next, child: Text(_isLast ? 'Finish lesson' : 'Next question')),
+          onPressed: _next,
+          child: Text(!_isLast
+              ? 'Next question'
+              : _lesson.totalSets > 1
+                  ? 'Finish set'
+                  : 'Finish lesson')),
     ]);
+  }
+
+  Widget _buildSetComplete(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final bool more = _lesson.hasNextSet;
+    final int next = _lesson.setNumber + 1;
+    final String title = _lesson.totalSets == 1
+        ? 'Lesson complete!'
+        : more
+            ? 'Set ${_lesson.setNumber} done!'
+            : 'You finished every set!';
+    final String body = _lesson.totalSets == 1
+        ? 'Great work on ${_lesson.title}.'
+        : more
+            ? 'Ready for set $next of ${_lesson.totalSets}? It has brand-new questions.'
+            : 'Amazing — you did all ${_lesson.totalSets} sets of ${_lesson.title}. '
+                'Practice again any time to get even stronger.';
+    return Scaffold(
+        appBar: AppBar(title: Text(_lesson.title)),
+        body: Center(
+            child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          const Center(child: NovaStar(size: 72)),
+                          const SizedBox(height: 16),
+                          Text(title, textAlign: TextAlign.center, style: text.headlineMedium),
+                          const SizedBox(height: 8),
+                          Text(body,
+                              textAlign: TextAlign.center,
+                              style: text.bodyLarge?.copyWith(fontSize: 18, height: 1.35)),
+                          const SizedBox(height: 28),
+                          if (more)
+                            FilledButton.icon(
+                                onPressed: _loadingSet ? null : () => _startSet(next),
+                                icon: const Icon(Icons.arrow_forward_rounded),
+                                label: Text('Start set $next')),
+                          if (!more && _lesson.totalSets > 1)
+                            FilledButton.icon(
+                                onPressed: _loadingSet ? null : () => _startSet(1),
+                                icon: const Icon(Icons.replay_rounded),
+                                label: const Text('Practice again')),
+                          const SizedBox(height: 12),
+                          OutlinedButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Back to lessons')),
+                        ])))));
   }
 }
 
@@ -310,7 +410,10 @@ class _ShakeOnMountState extends State<_ShakeOnMount> with SingleTickerProviderS
   @override
   void initState() {
     super.initState();
-    if (widget.enabled) _controller.forward();
+    // Touch the lazy controller here even when disabled: creating it for the first time inside
+    // dispose() would look up TickerMode on an already-deactivated element and throw.
+    final AnimationController controller = _controller;
+    if (widget.enabled) controller.forward();
   }
 
   @override

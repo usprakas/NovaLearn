@@ -144,7 +144,16 @@ Pre-K through Grade 6, in both Math and English — V9 added the `grade_level` c
 `ENGLISH` subject; V10 through V16 seed one grade each (Grade 2 through Grade 6, plus Pre-K and
 Kindergarten), 9 Math + 8 English lessons per grade, 3 exercises per lesson.
 
-**Grade 1 was deliberately left at its original 5 lessons, not re-authored to the 17-lesson depth
+**V19–V26 expand every grade** (one migration per grade, append-only — no existing row is edited):
+each existing lesson gains 3 more exercises (`display_order` 4–6), Grade 1 gains 4 Math + 8
+English lessons (bringing it to 17), and every other grade gains 1 Math + 1 English lesson (19
+each), each new lesson with 6 exercises. That is 528 new exercises, 900 in total. Answer positions
+are varied across choices 0–2 (the original seeds mostly keyed choice 1). Lessons are served to
+children in sets of 3 exercises by `application.progress.LessonSetService`; sets are derived from
+`display_order`, so no set column is stored and adding more exercises to a lesson simply adds sets.
+
+**(Superseded by V19, which adds 12 Grade 1 lessons alongside the original five.)** Grade 1 was
+originally left at its original 5 lessons, not re-authored to the 17-lesson depth
 of the other grades.** It already existed before this expansion and works correctly; rewriting
 working MVP content to match a later depth standard wasn't judged worth the risk of introducing
 inconsistency with whatever usage/data already depends on those specific lesson codes. If Grade 1
