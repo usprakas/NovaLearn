@@ -30,8 +30,8 @@ class LessonSetServiceTest {
   private final LessonRepository lessons = mock(LessonRepository.class);
   private final ExerciseRepository exercises = mock(ExerciseRepository.class);
   private final ExerciseAttemptRepository attempts = mock(ExerciseAttemptRepository.class);
-  private final LessonSetService service = new LessonSetService(children, lessons, exercises, attempts);
-  // Seven questions, returned out of order: sets are [1,2,3], [4,5,6], [7].
+  private final LessonSetService service = new LessonSetService(children, lessons, exercises, attempts, new java.util.Random(42));
+  // Seven questions: three sets of 3, 3, and 1.
   private final List<Exercise> lessonExercises = IntStream.of(5, 1, 7, 3, 2, 6, 4)
       .mapToObj(i -> new Exercise(UUID.randomUUID(), "L", "S", i, "Q" + i, List.of("a", "b", "c")))
       .toList();
@@ -51,52 +51,64 @@ class LessonSetServiceTest {
     when(attempts.findAttemptedExerciseIds(eq(child), any())).thenReturn(ids);
   }
 
+  private static List<Integer> orders(LessonSetService.LessonSet set) {
+    return set.exercises().stream().map(Exercise::order).toList();
+  }
+
   @Test
-  void aNewChildStartsAtTheFirstSetInOrder() {
+  void aNewChildGetsThreeQuestionsAsSetOne() {
     attempted();
     LessonSetService.LessonSet set = service.set(parent, child, "L", null);
     assertThat(set.setNumber()).isEqualTo(1);
     assertThat(set.totalSets()).isEqualTo(3);
     assertThat(set.completedAllSets()).isFalse();
-    assertThat(set.exercises()).extracting(Exercise::order).containsExactly(1, 2, 3);
+    assertThat(set.exercises()).hasSize(3).doesNotHaveDuplicates();
   }
 
   @Test
-  void finishingASetMovesTheChildOnToTheNextOne() {
-    attempted(1, 2, 3);
-    LessonSetService.LessonSet set = service.set(parent, child, "L", null);
-    assertThat(set.setNumber()).isEqualTo(2);
-    assertThat(set.exercises()).extracting(Exercise::order).containsExactly(4, 5, 6);
+  void setsAreRandomisedRatherThanAlwaysTheSame() {
+    attempted();
+    Set<List<Integer>> seen = new java.util.HashSet<>();
+    for (int i = 0; i < 30; i++) {
+      seen.add(orders(service.set(parent, child, "L", null)));
+    }
+    // 7 questions give 210 ordered picks of 3; 30 draws landing on just one would mean no shuffling.
+    assertThat(seen).hasSizeGreaterThan(5);
   }
 
   @Test
-  void aPartlyAnsweredSetIsResumedNotSkipped() {
-    attempted(1, 2, 3, 4);
-    assertThat(service.set(parent, child, "L", null).setNumber()).isEqualTo(2);
+  void onlyUnansweredQuestionsAreServedUntilEveryOneHasBeenSeen() {
+    attempted(1, 2, 5);
+    for (int i = 0; i < 20; i++) {
+      LessonSetService.LessonSet set = service.set(parent, child, "L", null);
+      assertThat(set.setNumber()).isEqualTo(2);
+      assertThat(orders(set)).hasSize(3).doesNotContain(1, 2, 5);
+    }
   }
 
   @Test
-  void theLastSetCanBeShorter() {
+  void theLastSetHoldsWhateverIsLeft() {
     attempted(1, 2, 3, 4, 5, 6);
     LessonSetService.LessonSet set = service.set(parent, child, "L", null);
     assertThat(set.setNumber()).isEqualTo(3);
-    assertThat(set.exercises()).extracting(Exercise::order).containsExactly(7);
+    assertThat(orders(set)).containsExactly(7);
   }
 
   @Test
-  void afterEverySetItStartsOverForPracticeAndSaysSo() {
+  void afterEveryQuestionPracticeDrawsFromTheWholeLessonAndSaysSo() {
     attempted(1, 2, 3, 4, 5, 6, 7);
     LessonSetService.LessonSet set = service.set(parent, child, "L", null);
     assertThat(set.setNumber()).isEqualTo(1);
     assertThat(set.completedAllSets()).isTrue();
+    assertThat(set.exercises()).hasSize(3).doesNotHaveDuplicates();
+    assertThat(service.set(parent, child, "L", 2).setNumber()).isEqualTo(2);
+    assertThat(service.set(parent, child, "L", 99).setNumber()).isEqualTo(3);
   }
 
   @Test
-  void aRequestedSetNumberIsServedAndClamped() {
-    attempted();
-    assertThat(service.set(parent, child, "L", 2).exercises()).extracting(Exercise::order).containsExactly(4, 5, 6);
-    assertThat(service.set(parent, child, "L", 99).setNumber()).isEqualTo(3);
-    assertThat(service.set(parent, child, "L", 0).setNumber()).isEqualTo(1);
+  void beforeFinishingTheSetNumberFollowsProgressNotTheRequest() {
+    attempted(1, 2, 3);
+    assertThat(service.set(parent, child, "L", 3).setNumber()).isEqualTo(2);
   }
 
   @Test

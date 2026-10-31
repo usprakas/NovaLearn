@@ -149,8 +149,9 @@ each existing lesson gains 3 more exercises (`display_order` 4–6), Grade 1 gai
 English lessons (bringing it to 17), and every other grade gains 1 Math + 1 English lesson (19
 each), each new lesson with 6 exercises. That is 528 new exercises, 900 in total. Answer positions
 are varied across choices 0–2 (the original seeds mostly keyed choice 1). Lessons are served to
-children in sets of 3 exercises by `application.progress.LessonSetService`; sets are derived from
-`display_order`, so no set column is stored and adding more exercises to a lesson simply adds sets.
+children in sets of 3 exercises picked at random by `application.progress.LessonSetService`
+(unanswered ones first, read from `exercise_attempts`); no set column is stored, so adding more
+exercises to a lesson simply adds sets.
 
 **(Superseded by V19, which adds 12 Grade 1 lessons alongside the original five.)** Grade 1 was
 originally left at its original 5 lessons, not re-authored to the 17-lesson depth

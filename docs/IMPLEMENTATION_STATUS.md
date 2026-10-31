@@ -36,10 +36,12 @@ browser by anyone before this session.
   each). 528 new questions, 900 total. Generated from reviewed content with a validator (exactly 3
   unique choices, valid visual tags, no prompt that would accidentally draw a coordinate grid or
   clock, arithmetic answers recomputed). All 26 migrations verified applying on a fresh database.
-- **Question sets**: `GET /children/{childId}/lessons/{code}/set` serves 3 questions at a time.
-  Finishing a set shows "Set 1 done!" → "Start set 2"; after the last set, "You finished every
-  set!" → "Practice again". A returning child resumes at their first unfinished set (worked out
-  from `exercise_attempts`, so it carries across devices). Lesson completion and coins still
+- **Question sets, randomised**: `GET /children/{childId}/lessons/{code}/set` serves 3 questions
+  at a time, picked at random and shuffled on every request, so a child doesn't get the same
+  questions in the same order each visit. Until every question has been answered, sets are drawn
+  only from the unanswered ones (from `exercise_attempts`, so it carries across devices). Finishing
+  a set shows "Set 1 done!" → "Start set 2"; after the last set, "You finished every set!" →
+  "Practice again", which draws random sets from the whole lesson. Lesson completion and coins still
   require answering every question in the lesson.
 - **Bug fixed — Learn tab showed the first child's lessons after switching child or grade**: each
   home tab loaded its data once in `initState`, and switching child kept the same widget state.

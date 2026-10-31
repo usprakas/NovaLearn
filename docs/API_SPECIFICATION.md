@@ -48,7 +48,7 @@ STORY, GAMES, REPETITION}`.
 | Method | Path | Response |
 | --- | --- | --- |
 | GET | `/children/{childId}/lessons` | 200, `[{code, subject, gradeLevel, order, title, description}]` — only lessons at the child's own grade level |
-| GET | `/children/{childId}/lessons/{code}/set?number=` | 200, `{code, subject, title, description, setNumber, totalSets, completedAllSets, exercises: [...]}` — one set of 3 questions. Without `number`, the first set with an unanswered question (so a returning child resumes); once every set is answered, `completedAllSets` is `true` and set 1 is served for practice. `number` is 1-based and clamped. 404 if the child isn't this parent's or the lesson is unknown |
+| GET | `/children/{childId}/lessons/{code}/set?number=` | 200, `{code, subject, title, description, setNumber, totalSets, completedAllSets, exercises: [...]}` — one set of 3 questions, picked at random and in random order on every call. While any of the lesson's questions are unanswered, the set is drawn only from those and `setNumber` follows the child's progress (answered / 3 + 1), so a returning child continues; once every question is answered, `completedAllSets` is `true` and sets are drawn from the whole lesson, with `number` (1-based, clamped) used only to label practice rounds. 404 if the child isn't this parent's or the lesson is unknown |
 | GET | `/lessons/{code}` | 200, `{code, subject, title, description, exercises: [{id, order, prompt, choices}]}`; 404 if unknown |
 
 **The list endpoint is child-scoped, not a bare catalog browse.** It used to be
