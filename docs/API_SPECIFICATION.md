@@ -36,6 +36,7 @@ requests/minute/IP via Redis; falls back to an in-process counter if Redis is un
 | --- | --- | --- | --- |
 | POST | `/children` | `{displayName, birthDate, gradeLevel?, avatar?, learningPreferences?}` | 201, `{id, displayName, birthDate, gradeLevel, avatar, learningPreferences}` |
 | GET | `/children` | — | 200, list of the above, ordered by display name |
+| PATCH | `/children/{childId}` | `{displayName?, birthDate?, gradeLevel?, avatar?}` — omitted fields are unchanged | 200, the updated profile; 404 if the child is not this parent's. Progress, coins and badges are kept. |
 
 `gradeLevel`/`avatar`/`learningPreferences` are optional — omitting them defaults to `GRADE_1` /
 `FOX` / `[]`. Valid enum values: `gradeLevel` ∈ `{PRE_K, KINDERGARTEN, GRADE_1, GRADE_2, GRADE_3, GRADE_4, GRADE_5, GRADE_6}`;

@@ -1,5 +1,6 @@
 package com.novalearn.application.child;
 
+import com.novalearn.application.common.ChildNotFoundException;
 import com.novalearn.domain.child.Avatar;
 import com.novalearn.domain.child.ChildProfile;
 import com.novalearn.domain.child.GradeLevel;
@@ -45,6 +46,29 @@ public class ChildService {
         gradeLevel == null ? DEFAULT_GRADE_LEVEL : gradeLevel,
         avatar == null ? DEFAULT_AVATAR : avatar,
         learningPreferences == null ? Set.of() : Set.copyOf(learningPreferences)));
+  }
+
+  /** Edits a profile the parent owns; null fields keep their current value. Progress is keyed by id, so it is preserved. */
+  @Transactional
+  public ChildProfile update(
+      UUID parentId,
+      UUID childId,
+      String displayName,
+      LocalDate birthDate,
+      GradeLevel gradeLevel,
+      Avatar avatar) {
+    if (!children.belongsToParent(childId, parentId)) {
+      throw new ChildNotFoundException();
+    }
+    ChildProfile current = children.findById(childId).orElseThrow(ChildNotFoundException::new);
+    return children.save(new ChildProfile(
+        current.id(),
+        current.parentId(),
+        displayName == null ? current.displayName() : displayName.trim(),
+        birthDate == null ? current.birthDate() : birthDate,
+        gradeLevel == null ? current.gradeLevel() : gradeLevel,
+        avatar == null ? current.avatar() : avatar,
+        current.learningPreferences()));
   }
 
   @Transactional(readOnly = true)
