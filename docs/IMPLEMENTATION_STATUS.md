@@ -189,8 +189,13 @@ Origin headers of each live frontend
   health `UP`, 11th login attempt in a minute gets 429.
 - Render's free tier spins the backend down after ~15 minutes idle; the next request after that
   takes 30–60s to wake it back up. Known tradeoff of the free tier, not a bug.
-  Mitigated by `.github/workflows/keep-alive.yml` (health ping every 10 min) and a wake-up ping
-  the app sends on open, plus a branded HTML splash while Flutter loads.
+  Mitigated by a **cron-job.org** job (owner's account, "NovaLearn keep-awake") that GETs
+  `/actuator/health` every 10 minutes — verified: the API answered in 0.26s after 21 minutes with
+  no other traffic. Its free plan times out at 30s, so a run that lands on a sleeping server shows
+  "Failed (timeout)" but still wakes it; failure/disable email notifications are recommended,
+  since cron-job.org switches off jobs that keep failing. Also a wake-up ping the app sends on
+  open, plus a branded HTML splash while Flutter loads. The earlier GitHub Actions scheduled ping
+  was removed: GitHub ran it only a couple of times a day, far from every 10 minutes.
 - ~~Returning to the site in the same browser failed with "Something went wrong"~~ — the saved
   session's access token (1h TTL) had expired, the API answered 403 instead of 401, and the app
   only signs out on 401, so it retried a dead token forever (private windows worked: no saved
@@ -220,9 +225,7 @@ Origin headers of each live frontend
 
 All code items from the previous list are done (tutor suggestions, kid-sized text, parent-gate
 memory, plus the rate-limit and token-refresh fixes). What remains needs the owner, not code:
-1. **Keep the server awake reliably** — GitHub's scheduled ping runs only a few times a day. Add a
-   free external monitor (UptimeRobot / cron-job.org, every 5 min, on
-   `https://novalearn-ue6u.onrender.com/actuator/health`) or move the API to Render's paid plan.
+1. ~~Keep the server awake reliably~~ — done with cron-job.org (see Known issues).
 2. **Gemini paid tier** before real families scan homework photos (free tier allows training use).
 3. **Educator review** of the curriculum (900 questions) and of the AI worked solutions.
 4. **Real-device testing** on an iPhone/Android phone (camera, voice, layout) — only Chrome so far.
