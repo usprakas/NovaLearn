@@ -171,7 +171,8 @@ class _HomeworkTabState extends State<HomeworkTab> {
         const SizedBox(height: 8),
         const Text(
             'Snap a photo of the question, or type it exactly as it appears on the worksheet, '
-            'and NovaLearn will walk through it step by step.'),
+            'and NovaLearn will walk through it step by step.',
+            style: TextStyle(fontSize: 18, height: 1.35)),
         const SizedBox(height: 16),
         Wrap(spacing: 12, runSpacing: 8, children: <Widget>[
           FilledButton.tonalIcon(
@@ -201,6 +202,7 @@ class _HomeworkTabState extends State<HomeworkTab> {
           controller: _questionController,
           minLines: 2,
           maxLines: 4,
+          style: const TextStyle(fontSize: 20),
           decoration: InputDecoration(
               hintText: 'e.g. What is 7 + 5?',
               suffixIcon: IconButton(
@@ -322,7 +324,7 @@ class _HomeworkTabState extends State<HomeworkTab> {
               backgroundColor: AppTheme.cosmicViolet,
               foregroundColor: Colors.white,
               child: Text('${index + 1}', style: const TextStyle(fontWeight: FontWeight.w800))),
-          title: Text(explanation, style: const TextStyle(fontSize: 16)),
+          title: Text(explanation, style: const TextStyle(fontSize: 19, height: 1.35)),
           subtitle: work == null
               ? null
               : Container(
@@ -334,7 +336,7 @@ class _HomeworkTabState extends State<HomeworkTab> {
                   ),
                   child: SelectableText(work,
                       style: TextStyle(
-                          fontSize: 17,
+                          fontSize: 20,
                           fontWeight: FontWeight.w700,
                           color: Theme.of(context).colorScheme.onSecondaryContainer)),
                 )));
@@ -344,7 +346,7 @@ class _HomeworkTabState extends State<HomeworkTab> {
       child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
-            Expanded(child: Text(text)),
+            Expanded(child: Text(text, style: const TextStyle(fontSize: 18, height: 1.35))),
             IconButton(
                 tooltip: 'Read aloud',
                 onPressed: () => _voice.speak(spoken),

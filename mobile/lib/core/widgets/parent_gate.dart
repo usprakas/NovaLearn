@@ -6,14 +6,31 @@ import 'package:flutter/material.dart';
 /// deletion, and progress/spend-adjacent screens out of a child's casual reach without requiring
 /// a real second login. Returns true only if the child/parent answers correctly; false/null
 /// (dismissed) otherwise. Call this before navigating to any parent-only screen.
+///
+/// A correct answer unlocks the gate for [parentGateUnlockDuration], so a parent checking the
+/// dashboard and then settings isn't re-solving a sum each time — short enough that a child who
+/// picks the device up afterwards still meets the gate. Signing out locks it again.
 Future<bool> showParentGate(BuildContext context) async {
+  final DateTime? unlockedUntil = _unlockedUntil;
+  if (unlockedUntil != null && parentGateClock().isBefore(unlockedUntil)) return true;
   final math.Random random = math.Random();
   final int a = 10 + random.nextInt(40);
   final int b = 10 + random.nextInt(40);
   final bool? result = await showDialog<bool>(
       context: context, builder: (_) => _ParentGateDialog(a: a, b: b));
-  return result ?? false;
+  final bool passed = result ?? false;
+  if (passed) _unlockedUntil = parentGateClock().add(parentGateUnlockDuration);
+  return passed;
 }
+
+const Duration parentGateUnlockDuration = Duration(minutes: 10);
+DateTime? _unlockedUntil;
+
+@visibleForTesting
+DateTime Function() parentGateClock = DateTime.now;
+
+/// Requires the challenge again on the next gated screen (e.g. after signing out).
+void lockParentGate() => _unlockedUntil = null;
 
 class _ParentGateDialog extends StatefulWidget {
   const _ParentGateDialog({required this.a, required this.b});

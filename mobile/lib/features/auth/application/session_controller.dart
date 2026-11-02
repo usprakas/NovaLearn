@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/novalearn_api.dart';
 import '../../../core/providers.dart';
 import '../../../core/security/session_store.dart';
+import '../../../core/widgets/parent_gate.dart';
 import '../domain/auth_repository.dart';
 
 /// Owns the current session: restoring it on startup, logging in/registering, and signing out.
@@ -55,6 +56,33 @@ class SessionController extends StateNotifier<AsyncValue<Session?>> {
     }
   }
 
+  Future<String?>? _refreshing;
+
+  /// Swaps the refresh token for a new access token after a request was rejected with
+  /// [expiredAccessToken]. Returns the new access token, or null if the session is over. If the
+  /// session already moved on (another request refreshed first), just hands back the current
+  /// token; concurrent callers share one refresh, since each refresh token can only be used once.
+  Future<String?> refreshAccessToken(String expiredAccessToken) {
+    final Session? current = state.value;
+    if (current == null) return Future<String?>.value(null);
+    if (current.accessToken != expiredAccessToken) return Future<String?>.value(current.accessToken);
+    return _refreshing ??= _refresh(current).whenComplete(() => _refreshing = null);
+  }
+
+  Future<String?> _refresh(Session current) async {
+    try {
+      final AuthSession fresh =
+          await _auth.refresh(current.refreshToken).timeout(const Duration(seconds: 20));
+      final Session session =
+          Session(accessToken: fresh.accessToken, refreshToken: fresh.refreshToken, email: fresh.email);
+      await _store.save(session);
+      if (mounted) state = AsyncValue.data(session);
+      return session.accessToken;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _clearQuietly() async {
     try {
       await _store.clear();
@@ -76,6 +104,7 @@ class SessionController extends StateNotifier<AsyncValue<Session?>> {
   }
 
   Future<void> signOut() async {
+    lockParentGate();
     final Session? current = state.value;
     if (current != null) {
       try {

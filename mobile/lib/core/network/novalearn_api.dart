@@ -34,16 +34,20 @@ class NovaLearnApi
         DashboardRepository,
         TutorRepository,
         HomeworkRepository {
-  NovaLearnApi({http.Client? client, String? baseUrl, this.onUnauthorized})
-      : _client = client ?? http.Client(),
+  NovaLearnApi(
+      {http.Client? client,
+      String? baseUrl,
+      this.onUnauthorized,
+      Future<String?> Function(String expiredAccessToken)? tokenRefresher})
+      : _client = _TokenRefreshingClient(client ?? http.Client(), tokenRefresher),
         _baseUrl = baseUrl ?? AppConfig.apiBaseUrl;
 
   final http.Client _client;
   final String _baseUrl;
 
-  /// Called once, synchronously, the first time an *authenticated* request (one that sent a
-  /// Bearer token) comes back 401 — the access token is dead (expired, revoked, or signed by a
-  /// backend that's since restarted with a new secret) and no amount of retrying will fix it.
+  /// Called once, synchronously, when an *authenticated* request (one that sent a Bearer token)
+  /// still comes back 401 after the `tokenRefresher` was given a chance to swap in a fresh access
+  /// token — i.e. the whole session is over (refresh token expired or revoked).
   /// Not called for a 401 on `login`/`register` themselves, which just means "wrong password."
   final void Function()? onUnauthorized;
 
@@ -108,6 +112,16 @@ class NovaLearnApi
   Future<Child> createChild(String token, ChildDraft draft) async {
     final http.Response response = await _client.post(
       _uri('/api/v1/children'),
+      headers: _headers(token),
+      body: jsonEncode(draft.toJson()),
+    );
+    return Child.fromJson(_decodeObject(response));
+  }
+
+  @override
+  Future<Child> updateChild(String token, String childId, ChildDraft draft) async {
+    final http.Response response = await _client.patch(
+      _uri('/api/v1/children/$childId'),
       headers: _headers(token),
       body: jsonEncode(draft.toJson()),
     );
@@ -291,6 +305,40 @@ class NovaLearnApi
     }
     throw ApiException(statusCode: response.statusCode, message: message);
   }
+}
+
+/// Access tokens last an hour, so a child mid-lesson would otherwise be signed out when theirs
+/// expires. On a 401 for a request that carried a Bearer token, this asks [_refresher] for a fresh
+/// access token (it returns null if the session itself is over) and replays the request once.
+/// Screens keep passing whatever token they were built with; a stale one is simply replaced here.
+class _TokenRefreshingClient extends http.BaseClient {
+  _TokenRefreshingClient(this._inner, this._refresher);
+  final http.Client _inner;
+  final Future<String?> Function(String expiredAccessToken)? _refresher;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final String? auth = request.headers['Authorization'];
+    if (_refresher == null || auth == null || !auth.startsWith('Bearer ') || request is! http.Request) {
+      return _inner.send(request);
+    }
+    final http.Request original = request;
+    final List<int> body = original.bodyBytes;
+    final http.StreamedResponse response = await _inner.send(original);
+    if (response.statusCode != 401) return response;
+
+    final String? fresh = await _refresher(auth.substring('Bearer '.length));
+    if (fresh == null) return response;
+    await response.stream.drain<void>();
+    final http.Request retry = http.Request(original.method, original.url)
+      ..headers.addAll(original.headers)
+      ..headers['Authorization'] = 'Bearer $fresh'
+      ..bodyBytes = body;
+    return _inner.send(retry);
+  }
+
+  @override
+  void close() => _inner.close();
 }
 
 class ApiException implements Exception {

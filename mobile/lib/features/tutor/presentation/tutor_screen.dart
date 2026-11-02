@@ -21,6 +21,37 @@ class TutorTab extends StatefulWidget {
   State<TutorTab> createState() => _TutorTabState();
 }
 
+/// Ready-made questions a child can tap instead of typing — most Pre-K to Grade 1 children can't
+/// type a question yet. Grouped by grade band so the suggestions match what they're learning.
+List<String> tutorSuggestions(String gradeLevel) {
+  final int grade = gradeLevels.indexOf(gradeLevel);
+  if (grade <= gradeLevels.indexOf('GRADE_1')) {
+    return const <String>[
+      'Why is the sky blue?',
+      'How do I count to 20?',
+      'What is 3 + 2?',
+      'Which letters are vowels?',
+      'Why do cats purr?',
+    ];
+  }
+  if (grade <= gradeLevels.indexOf('GRADE_3')) {
+    return const <String>[
+      'How does multiplication work?',
+      'What is a fraction?',
+      'How do I tell time on a clock?',
+      'What is a noun and a verb?',
+      'Why do leaves change color?',
+    ];
+  }
+  return const <String>[
+    'How do I add fractions with different denominators?',
+    'What is a ratio?',
+    'How do I find the main idea of a passage?',
+    'What is the difference between a simile and a metaphor?',
+    'How do plants make their own food?',
+  ];
+}
+
 class _TutorTabState extends State<TutorTab> {
   final TextEditingController _questionController = TextEditingController();
   final VoiceAssistant _voice = VoiceAssistant();
@@ -100,6 +131,11 @@ class _TutorTabState extends State<TutorTab> {
     }
   }
 
+  void _askSuggestion(String question) {
+    _questionController.text = question;
+    _ask(tryAnotherWay: false);
+  }
+
   @override
   Widget build(BuildContext context) => ListView(
       padding: const EdgeInsets.all(24),
@@ -112,14 +148,26 @@ class _TutorTabState extends State<TutorTab> {
         const SizedBox(height: 8),
         Text(
             "${widget.child.displayName} can ask any question, and NovaLearn will explain it in a "
-            "kid-friendly way. If one explanation doesn't click, ask again for a different approach."),
+            "kid-friendly way. If one explanation doesn't click, ask again for a different approach.",
+            style: const TextStyle(fontSize: 18, height: 1.35)),
+        const SizedBox(height: 16),
+        Text('Tap a question to ask it:', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: <Widget>[
+          for (final String suggestion in tutorSuggestions(widget.child.gradeLevel))
+            ActionChip(
+                avatar: const Icon(Icons.lightbulb_outline, size: 20),
+                label: Text(suggestion, style: const TextStyle(fontSize: 17)),
+                onPressed: _loading ? null : () => _askSuggestion(suggestion)),
+        ]),
         const SizedBox(height: 16),
         TextField(
           controller: _questionController,
           minLines: 2,
           maxLines: 4,
+          style: const TextStyle(fontSize: 20),
           decoration: InputDecoration(
-              hintText: 'e.g. Why is the moon following me?',
+              hintText: 'Or type your own: Why is the moon following me?',
               suffixIcon: IconButton(
                   tooltip: _listening ? 'Stop listening' : 'Ask by voice',
                   onPressed: _toggleListening,
@@ -131,8 +179,11 @@ class _TutorTabState extends State<TutorTab> {
           onPressed: _loading || _questionController.text.trim().isEmpty
               ? null
               : () => _ask(tryAnotherWay: false),
-          icon: const Icon(Icons.send),
-          label: const Text('Ask'),
+          icon: _loading
+              ? const SizedBox.square(
+                  dimension: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+              : const Icon(Icons.send),
+          label: const Text('Ask', style: TextStyle(fontSize: 18)),
         ),
         if (_answer != null) ...<Widget>[
           const SizedBox(height: 20),
@@ -161,7 +212,7 @@ class _TutorTabState extends State<TutorTab> {
                                   icon: const Icon(Icons.volume_up_outlined),
                                   visualDensity: VisualDensity.compact),
                             ]),
-                        Text(_answer!.explanation),
+                        Text(_answer!.explanation, style: const TextStyle(fontSize: 19, height: 1.4)),
                       ]))),
           if (!_answer!.refused) ...<Widget>[
             const SizedBox(height: 12),
@@ -177,7 +228,8 @@ class _TutorTabState extends State<TutorTab> {
                 color: Theme.of(context).colorScheme.secondaryContainer,
                 child: Padding(
                     padding: const EdgeInsets.all(12),
-                    child: Text(_answer!.suggestedNextActivity!))),
+                    child: Text(_answer!.suggestedNextActivity!,
+                        style: const TextStyle(fontSize: 17, height: 1.35)))),
           ],
         ],
         if (_error != null) ...<Widget>[

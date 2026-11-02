@@ -28,6 +28,24 @@ browser by anyone before this session.
 
 ## This session's work
 
+### Closing out the backlog (2026-11-02)
+
+- **Login rate limit could be bypassed** — it keyed on the first `X-Forwarded-For` entry, which
+  the client chooses, so a made-up value per attempt got a fresh limit. Measured on Render (with a
+  temporary diagnostic that reported header counts/matches only, since removed): Cloudflare sets
+  `CF-Connecting-IP` and rejects client-supplied ones; the proxy appends the real address last in
+  `X-Forwarded-For`. Now keyed on `CF-Connecting-IP`, else the right-most entry. Verified live:
+  12 attempts with 12 different forged addresses → 10 × 401, then 429.
+- **No more sign-out mid-lesson when the 1-hour access token expires** — on a 401 the API client
+  asks the session for a fresh token (one shared refresh; refresh tokens are single-use) and
+  replays the request once. Only a rejected refresh signs out.
+- **Tutor**: tappable suggested questions matched to the child's grade band (Pre-K–1, 2–3, 4–6),
+  so children who can't type can still ask; kid-sized text.
+- **Homework**: kid-sized text for the question, steps, math, and tips.
+- **Parent gate** stays unlocked for 10 minutes after a correct answer (locked again on sign-out).
+- **Edit a child's profile in the app** (pencil next to the child's name, behind the parent gate):
+  name, birthday, grade, avatar — the same child, so progress is kept.
+
 ### Bigger curriculum, served in sets; Learn tab follows the selected child
 
 - **More syllabus and questions** (`V19`–`V26`, one per grade): every lesson now has 6 questions
@@ -150,12 +168,10 @@ Origin headers of each live frontend
 - ~~The AI tutor runs on offline templates on the live deployment~~ — `GEMINI_API_KEY` is now set
   on the Render backend; verified live (tutor and homework helper both give genuine, kid-friendly
   AI-generated explanations, not the deterministic offline template).
-- Kid-sized text (18px+, bumped from default ~14–16px Material sizing) only landed on the lesson
-  screen — tutor/homework screens still use default sizing.
+- ~~Kid-sized text only on the lesson screen~~ — now also on the tutor and homework screens.
 - Tablet responsiveness is auto-wrap grids (`SliverGridDelegateWithMaxCrossAxisExtent`,
   `Wrap`), not deliberately designed breakpoint layouts for phone vs. tablet vs. desktop.
-- The parent gate has to be solved on every single visit to a gated screen — no "remembered for
-  this session" exemption.
+- ~~The parent gate has to be solved on every visit~~ — now remembered for 10 minutes.
 - No onboarding flow (avatar picker, "meet the tutor") — a child's first run is still the plain
   name/birthday/grade-level form that existed before this session.
 - No formal `ThemeExtension`/named reusable-component library (`NovaButton`, `TutorBubble`, etc.)
@@ -202,9 +218,13 @@ Origin headers of each live frontend
 
 ## Exact next action
 
-In priority order, as scoped with the user at the end of this session:
-1. A friendlier tutor screen — suggested-question chips instead of requiring typing, for children
-   who can't type yet (onboarding itself — avatar picker + "meet the tutor" — is now done).
-2. Extend the kid-sized-text treatment to the tutor/homework screens.
-3. Consider a "remembered for this app session" exemption on the parent gate so a parent isn't
-   re-solving a math problem every time they check the dashboard.
+All code items from the previous list are done (tutor suggestions, kid-sized text, parent-gate
+memory, plus the rate-limit and token-refresh fixes). What remains needs the owner, not code:
+1. **Keep the server awake reliably** — GitHub's scheduled ping runs only a few times a day. Add a
+   free external monitor (UptimeRobot / cron-job.org, every 5 min, on
+   `https://novalearn-ue6u.onrender.com/actuator/health`) or move the API to Render's paid plan.
+2. **Gemini paid tier** before real families scan homework photos (free tier allows training use).
+3. **Educator review** of the curriculum (900 questions) and of the AI worked solutions.
+4. **Real-device testing** on an iPhone/Android phone (camera, voice, layout) — only Chrome so far.
+5. Real birth dates for the demo profiles (Aadhya, Anshu, Kiaan show the placeholder 2020-01-01).
+6. Email verification (deferred at the owner's request).

@@ -3,6 +3,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/avatar_icon.dart';
 import '../../../core/widgets/error_state.dart';
 import '../../../core/widgets/nova_star.dart';
+import '../../../core/widgets/parent_gate.dart';
 import '../../onboarding/presentation/meet_tutor_screen.dart';
 import '../domain/child.dart';
 import '../domain/children_repository.dart';
@@ -51,6 +52,16 @@ class _ChildPickerState extends State<ChildPicker> {
     _reload(selectChildId: result.id);
   }
 
+  /// Parent-gated: a child shouldn't be able to change their own grade.
+  Future<void> _editChild(BuildContext context, Child child) async {
+    if (!await showParentGate(context) || !context.mounted) return;
+    final Child? result = await showDialog<Child>(
+        context: context,
+        builder: (_) => _ChildDialog(
+            token: widget.token, repository: widget.childrenRepository, existing: child));
+    if (result != null) _reload(selectChildId: result.id);
+  }
+
   @override
   Widget build(BuildContext context) => FutureBuilder<List<Child>>(
       future: _children,
@@ -77,7 +88,8 @@ class _ChildPickerState extends State<ChildPicker> {
               children: children,
               active: active,
               onSelect: (String id) => setState(() => _selectedChildId = id),
-              onAddChild: () => _addChild(context)),
+              onAddChild: () => _addChild(context),
+              onEditChild: () => _editChild(context, active)),
           Expanded(child: widget.builder(context, active, _reload)),
         ]);
       });
@@ -91,11 +103,13 @@ class _ChildSwitcherBar extends StatelessWidget {
       {required this.children,
       required this.active,
       required this.onSelect,
-      required this.onAddChild});
+      required this.onAddChild,
+      required this.onEditChild});
   final List<Child> children;
   final Child active;
   final ValueChanged<String> onSelect;
   final VoidCallback onAddChild;
+  final VoidCallback onEditChild;
 
   @override
   Widget build(BuildContext context) {
@@ -143,6 +157,10 @@ class _ChildSwitcherBar extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                       style: Theme.of(context).textTheme.titleMedium)),
                             ])),
+                  IconButton(
+                      tooltip: 'Edit ${active.displayName}\'s profile',
+                      onPressed: onEditChild,
+                      icon: const Icon(Icons.edit_outlined)),
                   IconButton(
                       tooltip: 'Add another child',
                       onPressed: onAddChild,
@@ -215,19 +233,23 @@ class _NewChildPrompt extends StatelessWidget {
   }
 }
 
+/// Adds a child, or edits [existing] in place when given (same fields, pre-filled).
 class _ChildDialog extends StatefulWidget {
-  const _ChildDialog({required this.token, required this.repository});
+  const _ChildDialog({required this.token, required this.repository, this.existing});
   final String token;
   final ChildrenRepository repository;
+  final Child? existing;
   @override
   State<_ChildDialog> createState() => _ChildDialogState();
 }
 
 class _ChildDialogState extends State<_ChildDialog> {
-  final TextEditingController _name = TextEditingController();
-  DateTime _birthDate = DateTime(2020, 1, 1);
-  String _gradeLevel = 'GRADE_1';
-  String _avatar = avatars.first;
+  late final TextEditingController _name = TextEditingController(text: widget.existing?.displayName);
+  late DateTime _birthDate = widget.existing?.birthDate ?? DateTime(2020, 1, 1);
+  late String _gradeLevel = widget.existing?.gradeLevel ?? 'GRADE_1';
+  late String _avatar = widget.existing?.avatar ?? avatars.first;
+  bool _saving = false;
+  String? _error;
   @override
   void dispose() {
     _name.dispose();
@@ -236,7 +258,7 @@ class _ChildDialogState extends State<_ChildDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-          title: const Text('Add a child'),
+          title: Text(widget.existing == null ? 'Add a child' : 'Edit profile'),
           content: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
             TextField(
                 controller: _name,
@@ -297,25 +319,43 @@ class _ChildDialogState extends State<_ChildDialog> {
                         Text(AvatarIcon.label(a), style: Theme.of(context).textTheme.labelSmall),
                       ]));
                 }).toList()),
+            if (_error != null) ...<Widget>[
+              const SizedBox(height: 12),
+              Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ],
           ]),
           actions: <Widget>[
             TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Cancel')),
             FilledButton(
-                onPressed: () async {
-                  if (_name.text.trim().isEmpty) return;
-                  final NavigatorState navigator = Navigator.of(context);
-                  final Child child = await widget.repository.createChild(
-                      widget.token,
-                      ChildDraft(
-                          displayName: _name.text,
-                          birthDate: _birthDate,
-                          gradeLevel: _gradeLevel,
-                          avatar: _avatar));
-                  if (!mounted) return;
-                  navigator.pop(child);
-                },
+                onPressed: _saving ? null : _save,
                 child: const Text('Save'))
           ]);
+
+  Future<void> _save() async {
+    if (_name.text.trim().isEmpty) {
+      setState(() => _error = 'Please enter a name.');
+      return;
+    }
+    final NavigatorState navigator = Navigator.of(context);
+    final ChildDraft draft = ChildDraft(
+        displayName: _name.text, birthDate: _birthDate, gradeLevel: _gradeLevel, avatar: _avatar);
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final Child? existing = widget.existing;
+      final Child child = existing == null
+          ? await widget.repository.createChild(widget.token, draft)
+          : await widget.repository.updateChild(widget.token, existing.id, draft);
+      if (!mounted) return;
+      navigator.pop(child);
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 }
