@@ -46,4 +46,22 @@ class AuthRateLimitFilterTest {
 
     verify(chain).doFilter(request, response);
   }
+
+  @Test
+  void aClientCannotPickItsOwnRateLimitKeyWithAForgedForwardedHeader() {
+    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+    request.setRemoteAddr("10.0.0.1");
+    request.addHeader("X-Forwarded-For", "1.2.3.4, 203.0.113.9");
+    assertThat(AuthRateLimitFilter.clientKey(request)).isEqualTo("203.0.113.9");
+
+    request.addHeader("CF-Connecting-IP", "198.51.100.7");
+    assertThat(AuthRateLimitFilter.clientKey(request)).isEqualTo("198.51.100.7");
+  }
+
+  @Test
+  void fallsBackToTheSocketAddressWithNoProxyHeaders() {
+    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+    request.setRemoteAddr("10.0.0.1");
+    assertThat(AuthRateLimitFilter.clientKey(request)).isEqualTo("10.0.0.1");
+  }
 }

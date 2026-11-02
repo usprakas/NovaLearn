@@ -12,7 +12,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Fixed-window rate limit on POST /api/v1/auth/** (register/login/refresh/logout), keyed by
- * client IP. See {@link RedisFixedWindowRateLimiter} for the fail-open behavior if Redis is down.
+ * client IP (see {@link #clientKey}). See {@link RedisFixedWindowRateLimiter} for the fail-open behavior if Redis is down.
  */
 @Component
 public class AuthRateLimitFilter extends OncePerRequestFilter {
@@ -34,7 +34,6 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
       chain.doFilter(request, response);
       return;
     }
-    response.setHeader("X-Proxy-Shape", proxyShape(request)); // TEMP diagnostic, no IP values
     String key = "ratelimit:auth:" + clientKey(request) + ":" + currentMinuteBucket();
     if (!limiter.tryAcquire(key, limitPerMinute, Duration.ofMinutes(1))) {
       TooManyRequestsResponse.write(response);
@@ -51,26 +50,22 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     return System.currentTimeMillis() / 60_000L;
   }
 
-  // TEMP: describes which proxy headers arrive and how they relate, without exposing any address.
-  private String proxyShape(HttpServletRequest request) {
-    String xff = request.getHeader("X-Forwarded-For");
-    String[] parts = xff == null ? new String[0] : xff.split(",");
-    String first = parts.length > 0 ? parts[0].trim() : null;
-    String last = parts.length > 0 ? parts[parts.length - 1].trim() : null;
-    String cf = request.getHeader("CF-Connecting-IP");
-    String tci = request.getHeader("True-Client-IP");
-    String xri = request.getHeader("X-Real-IP");
-    return "xff=" + parts.length
-        + ";cf=" + (cf != null) + ";tci=" + (tci != null) + ";xri=" + (xri != null)
-        + ";cfEqFirst=" + (cf != null && cf.equals(first)) + ";cfEqLast=" + (cf != null && cf.equals(last))
-        + ";tciEqLast=" + (tci != null && tci.equals(last)) + ";xriEqLast=" + (xri != null && xri.equals(last))
-        + ";remoteEqLast=" + request.getRemoteAddr().equals(last);
-  }
-
-  private String clientKey(HttpServletRequest request) {
+  /**
+   * The caller's real address, which must not be something the caller can choose — otherwise a
+   * fresh made-up value per attempt gets a fresh limit. Render sits behind Cloudflare, which sets
+   * {@code CF-Connecting-IP} itself and rejects requests that try to supply it. Without it (e.g.
+   * a different proxy), use the right-most {@code X-Forwarded-For} entry — the one our own proxy
+   * appended — never the left-most, which is whatever the client sent.
+   */
+  static String clientKey(HttpServletRequest request) {
+    String cloudflare = request.getHeader("CF-Connecting-IP");
+    if (cloudflare != null && !cloudflare.isBlank()) {
+      return cloudflare.trim();
+    }
     String forwarded = request.getHeader("X-Forwarded-For");
     if (forwarded != null && !forwarded.isBlank()) {
-      return forwarded.split(",")[0].trim();
+      String[] hops = forwarded.split(",");
+      return hops[hops.length - 1].trim();
     }
     return request.getRemoteAddr();
   }
