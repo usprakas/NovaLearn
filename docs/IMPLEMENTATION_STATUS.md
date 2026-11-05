@@ -190,7 +190,7 @@ Origin headers of each live frontend
 - Render's free tier spins the backend down after ~15 minutes idle; the next request after that
   takes 30–60s to wake it back up. Known tradeoff of the free tier, not a bug.
   Mitigated by a **cron-job.org** job (owner's account, "NovaLearn keep-awake") that GETs
-  `/actuator/health` every 10 minutes — verified: the API answered in 0.26s after 21 minutes with
+  `/actuator/health` every 2 minutes — verified: the API answered in 0.26s after 21 minutes with
   no other traffic. Its free plan times out at 30s, so a run that lands on a sleeping server shows
   "Failed (timeout)" but still wakes it; failure/disable email notifications are recommended,
   since cron-job.org switches off jobs that keep failing. Also a wake-up ping the app sends on
