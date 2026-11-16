@@ -63,9 +63,11 @@ list, so there's no real exposure in leaving it open.
 evaluation" below). This is a Phase 2 change: the catalog used to embed `questions` with an
 `answerIndex` the client graded itself; that shape no longer exists.
 
-**Curriculum coverage**: Math and English, PRE_K through GRADE_6. Grade 1 has 17 lessons (9 Math +
-8 English); every other grade has 19 (10 Math + 9 English). Every lesson has 6 questions, served
-as two sets of 3. See
+**Curriculum coverage**: five subjects, PRE_K through GRADE_6 — `MATH`, `ENGLISH`, and the
+Indian-syllabus `EVS`, `HINDI` and `TELUGU` (9 lessons each per grade). Grade 1 has 44 lessons
+(9 Math + 8 English + 27 Indian-syllabus); every other grade has 46. Every lesson has 6 questions,
+served as two sets of 3. Lessons are returned in subject order Math, English, EVS, Hindi, Telugu
+(any other subject after those), then by `order` within a subject. See
 `docs/DATABASE_DESIGN.md` → "Curriculum scope".
 
 ## Exercise evaluation

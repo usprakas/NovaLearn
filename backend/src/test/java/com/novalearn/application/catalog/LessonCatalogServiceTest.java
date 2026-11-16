@@ -30,6 +30,24 @@ class LessonCatalogServiceTest {
   }
 
   @Test
+  void ordersSubjectsMathEnglishEvsHindiTeluguThenAnyOther() {
+    LessonRepository lessons = mock(LessonRepository.class);
+    ExerciseRepository exercises = mock(ExerciseRepository.class);
+    when(lessons.findByGradeLevel(GradeLevel.GRADE_3)).thenReturn(List.of(
+        new LessonDefinition("G3-TELUGU-A-01", "TELUGU", GradeLevel.GRADE_3, 1, "t", "d"),
+        new LessonDefinition("G3-ART-01", "ART", GradeLevel.GRADE_3, 1, "t", "d"),
+        new LessonDefinition("G3-HINDI-A-01", "HINDI", GradeLevel.GRADE_3, 1, "t", "d"),
+        new LessonDefinition("G3-EVS-B-01", "EVS", GradeLevel.GRADE_3, 2, "t", "d"),
+        new LessonDefinition("G3-EVS-A-01", "EVS", GradeLevel.GRADE_3, 1, "t", "d"),
+        new LessonDefinition("G3-ENG-01", "ENGLISH", GradeLevel.GRADE_3, 1, "t", "d"),
+        new LessonDefinition("G3-ADD-01", "MATH", GradeLevel.GRADE_3, 1, "t", "d")));
+    LessonCatalogService service = new LessonCatalogService(lessons, exercises);
+
+    assertThat(service.forGrade(GradeLevel.GRADE_3)).extracting(LessonDefinition::code).containsExactly(
+        "G3-ADD-01", "G3-ENG-01", "G3-EVS-A-01", "G3-EVS-B-01", "G3-HINDI-A-01", "G3-TELUGU-A-01", "G3-ART-01");
+  }
+
+  @Test
   void filtersLessonsByGradeLevel() {
     LessonRepository lessons = mock(LessonRepository.class);
     ExerciseRepository exercises = mock(ExerciseRepository.class);

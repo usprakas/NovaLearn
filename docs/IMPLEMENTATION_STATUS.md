@@ -28,6 +28,31 @@ browser by anyone before this session.
 
 ## This session's work
 
+### Indian-syllabus subjects: EVS, Hindi and Telugu for every grade (2026-11-16)
+
+- **Three new subjects, every grade, everyone sees them** (`V27`–`V30`): EVS, Hindi and Telugu,
+  Pre-K through Grade 6, 9 lessons x 6 questions per grade each — 216 lessons and 1,296 questions,
+  matching Math/English depth (2,196 questions in total now). Hindi/Telugu: English instructions,
+  answers in Devanagari/Telugu script. See `DATABASE_DESIGN.md` → "Curriculum scope" for topics,
+  the ID scheme and what the content generator validated.
+- **Lesson order** is now Math, English, EVS, Hindi, Telugu (was alphabetical by subject code,
+  which would have put Math between Hindi and Telugu) — `LessonCatalogService.SUBJECT_ORDER`.
+- **App**: subject filter chips above the lesson list (All + one per subject, wrapping so every
+  subject is visible on a phone); Hindi/Telugu lessons show "अ"/"అ" instead of an icon; new subject
+  colors (WCAG-checked against white) and names; the parent dashboard shows subject names instead
+  of codes. **Fonts**: bundled Baloo Tammudu 2 (Telugu) and added Baloo 2 + Baloo Tammudu 2 as
+  fallbacks on every text style — Nunito has neither script, and this keeps Indic text in the
+  app's typeface instead of depending on system fonts.
+- **Verified**: backend 108 unit tests pass (`PostgresIntegrationTest` not run — no Docker on this
+  machine); all 30 migrations applied to a fresh PostgreSQL (PGlite) and to H2 (PostgreSQL mode)
+  via a real API start; mobile 51 tests pass, `flutter analyze` clean. Driven in the real web app
+  against the local API: filter chips, Telugu/Hindi lesson lists, early-learner tiles, and a Telugu
+  question answered and graded with mixed-script feedback.
+- **Content review still needed**: the Hindi and Telugu content was written and checked for
+  structure, not reviewed by a native-speaker teacher. A teacher should read V29/V30 before
+  marketing this as syllabus-aligned.
+
+
 ### Closing out the backlog (2026-11-02)
 
 - **Login rate limit could be bypassed** — it keyed on the first `X-Forwarded-For` entry, which

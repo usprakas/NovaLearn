@@ -23,6 +23,23 @@ public class LessonCatalogService {
   private final LessonRepository lessons;
   private final ExerciseRepository exercises;
 
+  /**
+   * Core subjects first, then the Indian-syllabus subjects, in the order a parent would expect to
+   * see them; any subject not listed here sorts after these, alphabetically. Plain alphabetical
+   * order would put MATH between HINDI and TELUGU.
+   */
+  static final List<String> SUBJECT_ORDER = List.of("MATH", "ENGLISH", "EVS", "HINDI", "TELUGU");
+
+  static final Comparator<LessonDefinition> BY_SUBJECT_THEN_ORDER =
+      Comparator.<LessonDefinition>comparingInt(lesson -> subjectRank(lesson.subject()))
+          .thenComparing(LessonDefinition::subject)
+          .thenComparing(LessonDefinition::order);
+
+  private static int subjectRank(String subject) {
+    int rank = SUBJECT_ORDER.indexOf(subject);
+    return rank < 0 ? SUBJECT_ORDER.size() : rank;
+  }
+
   public LessonCatalogService(LessonRepository lessons, ExerciseRepository exercises) {
     this.lessons = lessons;
     this.exercises = exercises;
@@ -31,7 +48,7 @@ public class LessonCatalogService {
   @Transactional(readOnly = true)
   public List<LessonDefinition> all() {
     return lessons.findAll().stream()
-        .sorted(Comparator.comparing(LessonDefinition::subject).thenComparing(LessonDefinition::order))
+        .sorted(BY_SUBJECT_THEN_ORDER)
         .toList();
   }
 
@@ -39,7 +56,7 @@ public class LessonCatalogService {
   @Transactional(readOnly = true)
   public List<LessonDefinition> forGrade(GradeLevel gradeLevel) {
     return lessons.findByGradeLevel(gradeLevel).stream()
-        .sorted(Comparator.comparing(LessonDefinition::subject).thenComparing(LessonDefinition::order))
+        .sorted(BY_SUBJECT_THEN_ORDER)
         .toList();
   }
 

@@ -37,7 +37,7 @@ flutter:
   # the app's typography (or worse, perceived "is this loading at all") depend on reaching
   # fonts.gstatic.com. Variable fonts: Flutter picks the matching named instance within the one
   # file for each declared weight. OFL.txt alongside each — required by the Open Font License when
-  # redistributing (SIL OFL 1.1, both fonts).
+  # redistributing (SIL OFL 1.1, all three fonts).
   fonts:
     - family: Baloo2
       fonts:
@@ -48,6 +48,19 @@ flutter:
         - asset: assets/fonts/Baloo2-Variable.ttf
           weight: 700
         - asset: assets/fonts/Baloo2-Variable.ttf
+          weight: 800
+    # Telugu script (Baloo 2 already covers Devanagari for Hindi, but not Telugu). Same Baloo
+    # design family, so Telugu lessons look like the rest of the app. Used only as a fallback —
+    # see AppTheme.scriptFallback.
+    - family: BalooTammudu2
+      fonts:
+        - asset: assets/fonts/BalooTammudu2-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/BalooTammudu2-Variable.ttf
+          weight: 600
+        - asset: assets/fonts/BalooTammudu2-Variable.ttf
+          weight: 700
+        - asset: assets/fonts/BalooTammudu2-Variable.ttf
           weight: 800
     - family: Nunito
       fonts:

@@ -19,6 +19,11 @@ class AppTheme {
   static const Color novaPink = Color(0xfff472b6);
   static const Color deepSpace = Color(0xff1e1b2e);
 
+  /// Glyph fallback for Hindi (Devanagari) and Telugu lesson content. Nunito has neither script;
+  /// Baloo 2 has Devanagari; Baloo Tammudu 2 has Telugu. Bundled, so these never depend on the
+  /// platform having an Indic system font or on fetching one at runtime.
+  static const List<String> scriptFallback = <String>['Baloo2', 'BalooTammudu2'];
+
   static ThemeData light() => _themeFrom(
       ColorScheme.fromSeed(seedColor: cosmicViolet).copyWith(
           primary: cosmicViolet,
@@ -54,7 +59,7 @@ class AppTheme {
         backgroundColor: colorScheme.surface,
         foregroundColor: colorScheme.onSurface,
         titleTextStyle: const TextStyle(
-            fontFamily: 'Baloo2', fontSize: 22, fontWeight: FontWeight.w700).copyWith(
+            fontFamily: 'Baloo2', fontFamilyFallback: scriptFallback, fontSize: 22, fontWeight: FontWeight.w700).copyWith(
             color: colorScheme.onSurface),
       ),
       cardTheme: CardThemeData(
@@ -67,27 +72,27 @@ class AppTheme {
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 28),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          textStyle: const TextStyle(fontFamily: 'Baloo2', fontSize: 17, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontFamily: 'Baloo2', fontFamilyFallback: scriptFallback, fontSize: 17, fontWeight: FontWeight.w600),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 22),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          textStyle: const TextStyle(fontFamily: 'Baloo2', fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontFamily: 'Baloo2', fontFamilyFallback: scriptFallback, fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: const TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(fontFamily: 'Nunito', fontFamilyFallback: scriptFallback, fontWeight: FontWeight.w700),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
-        labelStyle: const TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w600),
+        labelStyle: const TextStyle(fontFamily: 'Nunito', fontFamilyFallback: scriptFallback, fontWeight: FontWeight.w600),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(
@@ -105,14 +110,14 @@ class AppTheme {
         backgroundColor: colorScheme.surfaceContainer,
         indicatorColor: colorScheme.primaryContainer,
         labelTextStyle: WidgetStateProperty.all(const TextStyle(
-            fontFamily: 'Nunito', fontSize: 12.5, fontWeight: FontWeight.w800)),
+            fontFamily: 'Nunito', fontFamilyFallback: scriptFallback, fontSize: 12.5, fontWeight: FontWeight.w800)),
       ),
       chipTheme: ChipThemeData(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         side: BorderSide.none,
         backgroundColor: colorScheme.secondaryContainer,
-        labelStyle: const TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w700)
+        labelStyle: const TextStyle(fontFamily: 'Nunito', fontFamilyFallback: scriptFallback, fontWeight: FontWeight.w700)
             .copyWith(color: colorScheme.onSecondaryContainer),
       ),
       listTileTheme: ListTileThemeData(
@@ -127,8 +132,8 @@ class AppTheme {
   }
 
   static TextTheme _textTheme(TextTheme base, ColorScheme scheme) {
-    final TextTheme nunito = base.apply(fontFamily: 'Nunito');
-    final TextTheme baloo = base.apply(fontFamily: 'Baloo2');
+    final TextTheme nunito = base.apply(fontFamily: 'Nunito', fontFamilyFallback: scriptFallback);
+    final TextTheme baloo = base.apply(fontFamily: 'Baloo2', fontFamilyFallback: scriptFallback);
     return nunito.copyWith(
       displayLarge: baloo.displayLarge?.copyWith(fontWeight: FontWeight.w800),
       displayMedium: baloo.displayMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -156,6 +161,12 @@ class AppTheme {
         // threshold against its own tinted icon-circle background (verified: 2.62:1). This
         // shade keeps the same hue family at 3.5:1+ in both light and dark.
         return const Color(0xff12883e);
+      case 'EVS':
+        return const Color(0xff0f766e); // teal-700, 5.5:1 against white
+      case 'HINDI':
+        return const Color(0xffc2410c); // orange-700, 5.2:1 against white
+      case 'TELUGU':
+        return const Color(0xffbe185d); // pink-700, 6.0:1 against white
       default:
         return Theme.of(context).colorScheme.primary;
     }
@@ -167,8 +178,47 @@ class AppTheme {
         return Icons.calculate_rounded;
       case 'ENGLISH':
         return Icons.menu_book_rounded;
+      case 'EVS':
+        return Icons.eco_rounded;
+      case 'HINDI':
+      case 'TELUGU':
+        return Icons.translate_rounded;
       default:
         return Icons.school_rounded;
+    }
+  }
+
+  /// The first letter of the language's own script, shown in place of an icon for language
+  /// subjects — a child recognises "अ" or "అ" faster than a generic translate icon, and it tells
+  /// Hindi and Telugu apart at a glance. Null for subjects that use [subjectIcon].
+  static String? subjectGlyph(String subject) {
+    switch (subject) {
+      case 'HINDI':
+        return 'अ';
+      case 'TELUGU':
+        return 'అ';
+      default:
+        return null;
+    }
+  }
+
+  /// A parent-readable subject name for a subject code (the API reports codes like `EVS`).
+  static String subjectName(String subject) {
+    switch (subject) {
+      case 'MATH':
+        return 'Math';
+      case 'ENGLISH':
+        return 'English';
+      case 'EVS':
+        return 'EVS';
+      case 'HINDI':
+        return 'Hindi';
+      case 'TELUGU':
+        return 'Telugu';
+      default:
+        return subject.isEmpty
+            ? subject
+            : subject[0].toUpperCase() + subject.substring(1).toLowerCase();
     }
   }
 }

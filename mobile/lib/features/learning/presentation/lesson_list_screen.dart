@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/error_state.dart';
 import '../../../core/widgets/nova_star.dart';
+import '../../../core/widgets/subject_mark.dart';
 import '../../children/domain/child.dart';
 import '../domain/child_dashboard.dart';
 import '../domain/dashboard_repository.dart';
@@ -34,6 +35,10 @@ class LessonListTab extends StatefulWidget {
 class _LessonListTabState extends State<LessonListTab> {
   late Future<List<LessonSummary>> _lessons;
   late Future<ChildDashboard> _dashboard;
+
+  /// The subject filter chip that's selected, or null for "All". With five subjects a grade has
+  /// ~47 lessons — far too many to scroll through to find the one Hindi lesson a child wants.
+  String? _subject;
 
   @override
   void initState() {
@@ -87,7 +92,16 @@ class _LessonListTabState extends State<LessonListTab> {
           return ErrorState(
               message: friendlyErrorMessage(snapshot.error!), onRetry: _reload);
         }
-        final List<LessonSummary> lessons = snapshot.data ?? <LessonSummary>[];
+        final List<LessonSummary> allLessons = snapshot.data ?? <LessonSummary>[];
+        // Subjects in the order the server sorts them (Math, English, EVS, Hindi, Telugu).
+        final List<String> subjects = <String>[];
+        for (final LessonSummary summary in allLessons) {
+          if (!subjects.contains(summary.subject)) subjects.add(summary.subject);
+        }
+        final String? subject = subjects.contains(_subject) ? _subject : null;
+        final List<LessonSummary> lessons = subject == null
+            ? allLessons
+            : allLessons.where((LessonSummary l) => l.subject == subject).toList();
         return ListView(padding: const EdgeInsets.all(24), children: <Widget>[
           Row(children: <Widget>[
             Expanded(
@@ -113,6 +127,13 @@ class _LessonListTabState extends State<LessonListTab> {
             },
           ),
           const SizedBox(height: 16),
+          if (subjects.length > 1) ...<Widget>[
+            _SubjectFilter(
+                subjects: subjects,
+                selected: subject,
+                onSelected: (String? value) => setState(() => _subject = value)),
+            const SizedBox(height: 16),
+          ],
           if (_isEarlyLearner)
             _EarlyLearnerGrid(lessons: lessons, onTap: _openLesson)
           else
@@ -131,8 +152,9 @@ class _LessonListTabState extends State<LessonListTab> {
                               BoxShadow(color: subjectColor.withValues(alpha: 0.18), blurRadius: 10),
                             ],
                           ),
-                          child: Icon(AppTheme.subjectIcon(summary.subject),
-                              color: subjectColor, size: 22)),
+                          alignment: Alignment.center,
+                          child: SubjectMark(
+                              subject: summary.subject, color: subjectColor, size: 22)),
                       title: Text(summary.title,
                           style: Theme.of(context).textTheme.titleMedium),
                       subtitle: Text(summary.description),
@@ -172,7 +194,7 @@ class _EarlyLearnerGrid extends StatelessWidget {
         final Color subjectColor = AppTheme.subjectColor(context, summary.subject);
         return _EarlyLearnerTile(
             title: summary.title,
-            icon: AppTheme.subjectIcon(summary.subject),
+            subject: summary.subject,
             color: subjectColor,
             onTap: () => onTap(summary));
       });
@@ -180,9 +202,9 @@ class _EarlyLearnerGrid extends StatelessWidget {
 
 class _EarlyLearnerTile extends StatelessWidget {
   const _EarlyLearnerTile(
-      {required this.title, required this.icon, required this.color, required this.onTap});
+      {required this.title, required this.subject, required this.color, required this.onTap});
   final String title;
-  final IconData icon;
+  final String subject;
   final Color color;
   final VoidCallback onTap;
 
@@ -208,7 +230,8 @@ class _EarlyLearnerTile extends StatelessWidget {
                             BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 14),
                           ],
                         ),
-                        child: Icon(icon, color: Colors.white, size: 36)),
+                        alignment: Alignment.center,
+                        child: SubjectMark(subject: subject, color: Colors.white, size: 36)),
                     const SizedBox(height: 14),
                     Text(title,
                         textAlign: TextAlign.center,
@@ -219,6 +242,46 @@ class _EarlyLearnerTile extends StatelessWidget {
                             .titleMedium
                             ?.copyWith(fontSize: 18, fontWeight: FontWeight.w800)),
                   ]))));
+}
+
+/// A wrapping set of subject chips — "All" plus one per subject the child's grade
+/// has. Big, colored, and marked with the same icon/letter as the lessons, so a pre-reader can
+/// pick "the orange अ one" without reading the label.
+class _SubjectFilter extends StatelessWidget {
+  const _SubjectFilter({required this.subjects, required this.selected, required this.onSelected});
+  final List<String> subjects;
+  final String? selected;
+  final ValueChanged<String?> onSelected;
+
+  Widget _chip(BuildContext context, {required String? subject, required String label}) {
+    final bool isSelected = selected == subject;
+    final Color color = subject == null
+        ? Theme.of(context).colorScheme.primary
+        : AppTheme.subjectColor(context, subject);
+    return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ChoiceChip(
+            selected: isSelected,
+            showCheckmark: false,
+            avatar: subject == null
+                ? null
+                : SubjectMark(subject: subject, color: isSelected ? Colors.white : color, size: 18),
+            label: Text(label),
+            labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface),
+            selectedColor: color,
+            backgroundColor: color.withValues(alpha: 0.12),
+            onSelected: (_) => onSelected(subject)));
+  }
+
+  // Wraps rather than scrolling sideways: with six chips a phone shows two rows, and every
+  // subject (and which one is selected) stays visible instead of hiding off the right edge.
+  @override
+  Widget build(BuildContext context) => Wrap(runSpacing: 8, children: <Widget>[
+        _chip(context, subject: null, label: 'All'),
+        for (final String subject in subjects)
+          _chip(context, subject: subject, label: AppTheme.subjectName(subject)),
+      ]);
 }
 
 /// A quick-glance strip of coins and streak — the numbers a child cares about most, pulled from

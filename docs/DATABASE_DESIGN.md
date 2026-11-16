@@ -134,7 +134,24 @@ child_badges
   PK (child_id, badge_code)
 ```
 
-## Curriculum scope: PRE_K through GRADE_6, Math and English
+## Curriculum scope: PRE_K through GRADE_6, five subjects
+
+**V27–V30 add the Indian-syllabus subjects** (2026-11-16): V27 inserts `EVS` (Environmental
+Studies), `HINDI` and `TELUGU` into `subjects`; V28/V29/V30 seed each one for every grade — 9
+lessons x 6 exercises per grade, 72 lessons and 432 exercises per subject, 1,296 in total (2,196
+exercises across all five subjects). EVS is in English and follows NCERT "Looking Around" themes
+(plus Class 6 science/geography); Hindi and Telugu put instructions in English and letters, words
+and answers in the language's own script (Pre-K/KG alphabet, Grades 1–2 matras/guninthalu and
+vocabulary, Grades 3–6 grammar, idioms, proverbs, sandhi/samasam, and for Telugu, poets and
+gurulaghuvu). ID scheme: lessons `4{s}{g}00000-…-{lesson}`, exercises `5{s}{g}00000-…-{lesson*100+n}`,
+where `s` is 1/2/3 for EVS/Hindi/Telugu and `g` is 0–7 for Pre-K…Grade 6; lesson codes are
+`{PK|K|G1..G6}-{EVS|HIN|TEL}-{KEY}-01`. The generator that produced these checked every exercise
+for exactly 3 distinct choices, answer positions spread evenly (each position correct twice per
+lesson), no prompt text the client would draw as a clock or coordinate grid, no choice that looks
+like a visual tag, column lengths, no ID/code collisions, and that no question depends on another
+question's passage (sets are 3 random questions, so each must stand alone). All 30 migrations
+were applied in order to a fresh PostgreSQL (PGlite) and to H2 in PostgreSQL mode.
+
 
 V8 originally seeded exactly the five topics the master spec names for the MVP (Counting and
 Number Recognition, Addition, Subtraction, Number Comparison, Simple Word Problems) as Grade 1

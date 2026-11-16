@@ -95,10 +95,10 @@ class _ParentDashboardState extends State<ParentDashboard> {
           ]),
           if (dashboard.strongestSubject != null) ...<Widget>[
             const SizedBox(height: 12),
-            Text('Strongest subject: ${dashboard.strongestSubject}'),
+            Text('Strongest subject: ${AppTheme.subjectName(dashboard.strongestSubject!)}'),
             if (dashboard.weakestSubject != null &&
                 dashboard.weakestSubject != dashboard.strongestSubject)
-              Text('Could use more practice: ${dashboard.weakestSubject}'),
+              Text('Could use more practice: ${AppTheme.subjectName(dashboard.weakestSubject!)}'),
           ],
           if (dashboard.recommendedNextLessonTitle != null) ...<Widget>[
             const SizedBox(height: 12),
